@@ -681,7 +681,7 @@ def generate_filename(model1: str, model2: str) -> str:
 
 def display_google_form():
     """Display the Google Form"""
-    form_url = "https://docs.google.com/forms/d/e/1FAIpQLSeAFiZgcylypm6JP_uBGbj2Cmz3Syl-ZMqj6ZHut4xsg7_g_Q/viewform"
+    form_url = "https://docs.google.com/forms/d/e/1FAIpQLScytuZf0c0TVca_aR_hAinZUG0SrRgPJmXgqgtxQIsEeubN1g/viewform?usp=header"
     
     iframe_html = f"""
     <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
