@@ -5,15 +5,20 @@ from PIL import Image
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+from reportlab.lib.units import inch
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.colors import HexColor
 from datetime import datetime
 import tempfile
 import os
 import traceback
+import requests
 from typing import List, Optional, BinaryIO
 
 # Configure page
 st.set_page_config(
-    page_title="Chiron SxS Model Comparison PDF Generator",
+    page_title="SxS Model Comparison PDF Generator",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -66,8 +71,7 @@ st.markdown("""
         padding: 2rem;
         text-align: center;
         margin: 1rem 0;
-        background-color: #d4edda;
-        color: black;
+        background-color: #f8f9fa;
     }
     
     .success-message {
@@ -198,12 +202,78 @@ MODEL_COMBINATIONS = [
 ]
 
 class PDFGenerator:
-    """Production-grade PDF generator with proper error handling and memory management"""
+    """Production-grade PDF generator with Google Slides format and company branding"""
     
     def __init__(self):
-        self.page_width, self.page_height = A4
-        self.margin = 50
+        # Google Slides 16:9 format dimensions (720 × 405 points)
+        self.page_width = 10 * inch  # 720 points
+        self.page_height = 5.625 * inch  # 405 points
+        self.slide_format = (self.page_width, self.page_height)
+        
+        # Safe margins (1 inch from edges as recommended)
+        self.safe_margin = 0.5 * inch
+        self.content_width = self.page_width - (2 * self.safe_margin)
+        self.content_height = self.page_height - (2 * self.safe_margin)
+        
+        # Company logo dimensions and position
+        self.logo_size = 0.4 * inch  # 40 points
+        self.logo_margin = 0.2 * inch  # 20 points from edge
+        
+        # Color scheme (Google Slides Material Design)
+        self.primary_color = HexColor('#4a86e8')  # Cornflower Blue
+        self.text_color = HexColor('#1f2937')     # Dark Gray
+        self.light_gray = HexColor('#f3f4f6')     # Light Gray
+        
         self.temp_files = []
+        self.company_logo_path = None
+        
+        # Download and cache company logo
+        self._setup_company_logo()
+    
+    def _setup_company_logo(self):
+        """Download and cache the Invisible company logo"""
+        try:
+            # Create a simple text-based logo since we can't download external images
+            # In production, you would download the actual logo file
+            logo_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+            
+            # Create a simple logo using PIL
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # Create a simple circular logo with "I" for Invisible
+            logo_img = Image.new('RGBA', (120, 120), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(logo_img)
+            
+            # Draw circle background
+            draw.ellipse([10, 10, 110, 110], fill=(0, 0, 0, 255))
+            
+            # Draw white "I" in center
+            try:
+                font = ImageFont.truetype("arial.ttf", 60)
+            except:
+                font = ImageFont.load_default()
+            
+            # Get text size and center it
+            text = "I"
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            x = (120 - text_width) // 2
+            y = (120 - text_height) // 2 - 5  # Slight adjustment
+            
+            draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+            
+            # Save logo
+            logo_img.save(logo_temp.name, format='PNG')
+            logo_temp.close()
+            
+            self.company_logo_path = logo_temp.name
+            self.temp_files.append(logo_temp.name)
+            
+        except Exception as e:
+            print(f"Warning: Could not create company logo: {e}")
+            self.company_logo_path = None
     
     def __enter__(self):
         return self
@@ -246,11 +316,45 @@ class PDFGenerator:
             st.error(f"Error preparing image: {str(e)}")
             return None
     
+    def draw_company_logo(self, canvas_obj):
+        """Draw the Invisible company logo in the bottom right corner"""
+        if not self.company_logo_path:
+            return
+            
+        try:
+            # Position logo in bottom right corner
+            logo_x = self.page_width - self.logo_size - self.logo_margin
+            logo_y = self.logo_margin
+            
+            # Draw logo with proper scaling
+            canvas_obj.drawImage(
+                self.company_logo_path,
+                logo_x,
+                logo_y,
+                width=self.logo_size,
+                height=self.logo_size,
+                preserveAspectRatio=True
+            )
+            
+        except Exception as e:
+            print(f"Warning: Could not draw company logo: {e}")
+    
+    def draw_slide_background(self, canvas_obj):
+        """Draw slide background with Google Slides styling"""
+        # Set background to white
+        canvas_obj.setFillColor(HexColor('#ffffff'))
+        canvas_obj.rect(0, 0, self.page_width, self.page_height, fill=1, stroke=0)
+        
+        # Optional: Add subtle border
+        canvas_obj.setStrokeColor(HexColor('#e5e7eb'))
+        canvas_obj.setLineWidth(1)
+        canvas_obj.rect(0, 0, self.page_width, self.page_height, fill=0, stroke=1)
     def draw_text_with_wrapping(self, canvas_obj, text: str, x: float, y: float, 
                                max_width: float, font_name: str = "Helvetica", 
-                               font_size: int = 10):
-        """Draw text with automatic line wrapping"""
+                               font_size: int = 18):
+        """Draw text with automatic line wrapping - optimized for slide format"""
         canvas_obj.setFont(font_name, font_size)
+        canvas_obj.setFillColor(self.text_color)
         
         # Split text into words
         words = text.split(' ')
@@ -272,37 +376,59 @@ class PDFGenerator:
         if current_line:
             lines.append(current_line.strip())
         
-        # Draw lines
+        # Draw lines with proper spacing for slides
         current_y = y
+        line_height = font_size * 1.2  # Increased line height for better readability
+        
         for line in lines:
             canvas_obj.drawString(x, current_y, line)
-            current_y -= font_size + 2
+            current_y -= line_height
         
         return current_y
     
     def draw_centered_text(self, canvas_obj, text: str, y: float, 
-                          font_name: str = "Helvetica-Bold", font_size: int = 48):
-        """Draw centered text"""
+                          font_name: str = "Helvetica-Bold", font_size: int = 48,
+                          color: HexColor = None):
+        """Draw centered text with slide-appropriate styling"""
+        if color is None:
+            color = self.text_color
+            
         canvas_obj.setFont(font_name, font_size)
+        canvas_obj.setFillColor(color)
+        
         text_width = canvas_obj.stringWidth(text, font_name, font_size)
         x = (self.page_width - text_width) / 2
         canvas_obj.drawString(x, y, text)
     
+    def draw_slide_title(self, canvas_obj, text: str, y: float = None):
+        """Draw slide title with consistent positioning"""
+        if y is None:
+            y = self.page_height - self.safe_margin - 60  # Standard title position
+        
+        self.draw_centered_text(
+            canvas_obj, 
+            text, 
+            y, 
+            font_name="Helvetica-Bold", 
+            font_size=40,
+            color=self.primary_color
+        )
+    
     def draw_image_centered(self, canvas_obj, image_path: str, max_width: float = None, 
                            max_height: float = None):
-        """Draw image centered on page with proper scaling"""
+        """Draw image centered on slide with proper scaling for 16:9 format"""
         try:
             # Get image dimensions
             img = Image.open(image_path)
             img_width, img_height = img.size
             
-            # Set default max dimensions if not provided
+            # Set default max dimensions for slide format
             if max_width is None:
-                max_width = self.page_width - 2 * self.margin
+                max_width = self.content_width
             if max_height is None:
-                max_height = self.page_height - 2 * self.margin
+                max_height = self.content_height
             
-            # Calculate scaling
+            # Calculate scaling to fit within slide bounds
             if img_width > max_width or img_height > max_height:
                 ratio = min(max_width / img_width, max_height / img_height)
                 new_width = int(img_width * ratio)
@@ -311,7 +437,7 @@ class PDFGenerator:
                 new_width = img_width
                 new_height = img_height
             
-            # Center the image
+            # Center the image on the slide
             x = (self.page_width - new_width) / 2
             y = (self.page_height - new_height) / 2
             
@@ -321,39 +447,143 @@ class PDFGenerator:
         except Exception as e:
             st.error(f"Error drawing image: {str(e)}")
     
+    def create_title_slide(self, canvas_obj, question_id: str, prompt: str, 
+                          prompt_image: Optional[BinaryIO] = None):
+        """Create the title slide with Google Slides styling"""
+        
+        # Draw background
+        self.draw_slide_background(canvas_obj)
+        
+        # Draw title: ID
+        self.draw_slide_title(canvas_obj, "ID")
+        
+        # Draw question ID with proper wrapping
+        y_pos = self.page_height - self.safe_margin - 120
+        max_width = self.content_width
+        
+        # Handle long question ID with better formatting
+        if '+' in question_id:
+            # Split by '+' and format nicely
+            parts = question_id.split('+')
+            formatted_id = '\n'.join(parts)
+        else:
+            formatted_id = question_id
+        
+        # Draw ID text
+        self.draw_text_with_wrapping(
+            canvas_obj, 
+            formatted_id, 
+            self.safe_margin, 
+            y_pos, 
+            max_width, 
+            font_name="Helvetica", 
+            font_size=14
+        )
+        
+        # Draw prompt section
+        y_pos -= 100
+        canvas_obj.setFont("Helvetica-Bold", 18)
+        canvas_obj.setFillColor(self.primary_color)
+        canvas_obj.drawString(self.safe_margin, y_pos, f"Initial Prompt: {prompt}")
+        
+        # Add prompt image if provided
+        if prompt_image is not None:
+            temp_image_path = self.prepare_image(prompt_image)
+            if temp_image_path:
+                # Position image in lower portion of slide
+                y_pos -= 40
+                available_height = y_pos - self.safe_margin - 60  # Leave space for logo
+                
+                if available_height > 50:  # Only draw if there's enough space
+                    img = Image.open(temp_image_path)
+                    img_width, img_height = img.size
+                    
+                    # Scale to fit available space
+                    if img_height > available_height:
+                        ratio = available_height / img_height
+                        new_width = int(img_width * ratio)
+                        new_height = int(img_height * ratio)
+                    else:
+                        new_width = img_width
+                        new_height = img_height
+                    
+                    # Center horizontally
+                    x = (self.page_width - new_width) / 2
+                    y = y_pos - new_height
+                    
+                    canvas_obj.drawImage(temp_image_path, x, y, 
+                                       width=new_width, height=new_height)
+        
+        # Draw company logo
+        self.draw_company_logo(canvas_obj)
+    
+    def create_model_title_slide(self, canvas_obj, model_name: str):
+        """Create a model title slide with Google Slides styling"""
+        
+        # Draw background
+        self.draw_slide_background(canvas_obj)
+        
+        # Draw model name in center
+        self.draw_centered_text(
+            canvas_obj, 
+            model_name, 
+            self.page_height / 2, 
+            font_name="Helvetica-Bold", 
+            font_size=56,
+            color=self.primary_color
+        )
+        
+        # Draw company logo
+        self.draw_company_logo(canvas_obj)
+    
+    def create_image_slide(self, canvas_obj, image_path: str):
+        """Create an image slide with Google Slides styling"""
+        
+        # Draw background
+        self.draw_slide_background(canvas_obj)
+        
+        # Draw image centered, leaving space for logo
+        max_height = self.content_height - 60  # Leave space for logo
+        self.draw_image_centered(canvas_obj, image_path, 
+                               max_width=self.content_width, 
+                               max_height=max_height)
+        
+        # Draw company logo
+        self.draw_company_logo(canvas_obj)
+    
     def generate_pdf(self, question_id: str, prompt: str, model1: str, model2: str,
                     model1_images: List[BinaryIO], model2_images: List[BinaryIO],
                     prompt_image: Optional[BinaryIO] = None) -> io.BytesIO:
-        """Generate the complete PDF with all slides"""
+        """Generate the complete PDF with Google Slides 16:9 format"""
         
         buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
+        c = canvas.Canvas(buffer, pagesize=self.slide_format)
         
         try:
-            # Page 1: Question ID, Prompt, and optional prompt image
-            self._create_title_page(c, question_id, prompt, prompt_image)
+            # Slide 1: Title slide with ID, prompt, and optional image
+            self.create_title_slide(c, question_id, prompt, prompt_image)
             
-            # Page 2: First model title card
+            # Slide 2: First model title slide
             c.showPage()
-            self.draw_centered_text(c, model1, self.page_height / 2)
+            self.create_model_title_slide(c, model1)
             
-            # First model screenshots (one per page)
+            # First model image slides (one image per slide)
             for i, img_file in enumerate(model1_images):
                 c.showPage()
                 temp_image_path = self.prepare_image(img_file)
                 if temp_image_path:
-                    self.draw_image_centered(c, temp_image_path)
+                    self.create_image_slide(c, temp_image_path)
             
-            # Second model title card
+            # Second model title slide
             c.showPage()
-            self.draw_centered_text(c, model2, self.page_height / 2)
+            self.create_model_title_slide(c, model2)
             
-            # Second model screenshots (one per page)
+            # Second model image slides (one image per slide)
             for i, img_file in enumerate(model2_images):
                 c.showPage()
                 temp_image_path = self.prepare_image(img_file)
                 if temp_image_path:
-                    self.draw_image_centered(c, temp_image_path)
+                    self.create_image_slide(c, temp_image_path)
             
             # Finalize PDF
             c.save()
@@ -368,60 +598,8 @@ class PDFGenerator:
     
     def _create_title_page(self, canvas_obj, question_id: str, prompt: str, 
                           prompt_image: Optional[BinaryIO] = None):
-        """Create the title page with ID, prompt, and optional image"""
-        
-        # Title: ID
-        canvas_obj.setFont("Helvetica-Bold", 12)
-        canvas_obj.drawString(self.margin, self.page_height - 50, "ID:")
-        
-        # Question ID with text wrapping
-        y_pos = self.page_height - 80
-        max_width = self.page_width - 2 * self.margin
-        
-        # Handle long question ID
-        if '+' in question_id:
-            words = question_id.split('+')
-            lines = []
-            current_line = ""
-            
-            for word in words:
-                test_line = current_line + word + "+"
-                if canvas_obj.stringWidth(test_line, "Helvetica", 10) < max_width:
-                    current_line = test_line
-                else:
-                    if current_line:
-                        lines.append(current_line.rstrip('+'))
-                        current_line = word + "+"
-                    else:
-                        lines.append(word)
-                        current_line = ""
-            
-            if current_line:
-                lines.append(current_line.rstrip('+'))
-            
-            canvas_obj.setFont("Helvetica", 10)
-            for line in lines:
-                canvas_obj.drawString(self.margin, y_pos, line)
-                y_pos -= 15
-        else:
-            canvas_obj.setFont("Helvetica", 10)
-            canvas_obj.drawString(self.margin, y_pos, question_id)
-            y_pos -= 15
-        
-        # Initial Prompt
-        y_pos -= 20
-        canvas_obj.setFont("Helvetica-Bold", 12)
-        canvas_obj.drawString(self.margin, y_pos, f"Initial Prompt: {prompt}")
-        y_pos -= 40
-        
-        # Add prompt image if provided
-        if prompt_image is not None:
-            temp_image_path = self.prepare_image(prompt_image)
-            if temp_image_path:
-                # Calculate available space for image
-                available_height = y_pos - 100
-                self.draw_image_centered(canvas_obj, temp_image_path, 
-                                       max_height=available_height)
+        """Legacy method - replaced by create_title_slide"""
+        self.create_title_slide(canvas_obj, question_id, prompt, prompt_image)
 
 def get_step_status(current_page):
     """Get the status of each step based on session state"""
@@ -742,6 +920,7 @@ def main():
                 <p><strong>Model Comparison:</strong> {st.session_state.model1} vs {st.session_state.model2}</p>
                 <p><strong>Prompt:</strong> {st.session_state.prompt_text[:100]}...</p>
                 <p><strong>Prompt Image:</strong> {"Yes" if st.session_state.get('prompt_image') else "No"}</p>
+                <p><strong>Format:</strong> Google Slides 16:9 Widescreen</p>
             </div>
             """, unsafe_allow_html=True)
         
