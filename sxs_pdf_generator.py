@@ -13,7 +13,7 @@ from typing import List, Optional, BinaryIO
 
 # Configure page
 st.set_page_config(
-    page_title="SxS Model Comparison PDF Generator",
+    page_title="Chiron SxS Model Comparison PDF Generator",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -67,6 +67,7 @@ st.markdown("""
         text-align: center;
         margin: 1rem 0;
         background-color: #d4edda;
+        color: black;
     }
     
     .success-message {
