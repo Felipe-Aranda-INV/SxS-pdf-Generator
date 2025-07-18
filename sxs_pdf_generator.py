@@ -449,70 +449,147 @@ class PDFGenerator:
     
     def create_title_slide(self, canvas_obj, question_id: str, prompt: str, 
                           prompt_image: Optional[BinaryIO] = None):
-        """Create the title slide with Google Slides styling"""
+        """Create the title slide with Google Slides styling and dedicated image space"""
         
         # Draw background
         self.draw_slide_background(canvas_obj)
         
-        # Draw title: ID
-        self.draw_slide_title(canvas_obj, "ID")
+        # Start higher up on the slide for better space utilization
+        y_pos = self.page_height - self.safe_margin - 30  # Start closer to top
         
-        # Draw question ID with proper wrapping
-        y_pos = self.page_height - self.safe_margin - 120
+        # Draw title: ID (smaller, more compact)
+        canvas_obj.setFont("Helvetica-Bold", 16)
+        canvas_obj.setFillColor(self.primary_color)
+        canvas_obj.drawString(self.safe_margin, y_pos, "ID:")
+        y_pos -= 25
+        
+        # Draw question ID with better formatting
         max_width = self.content_width
         
-        # Handle long question ID with better formatting
+        # Handle long question ID with improved formatting
         if '+' in question_id:
-            # Split by '+' and format nicely
+            # Split by '+' and format on multiple lines
             parts = question_id.split('+')
-            formatted_id = '\n'.join(parts)
+            canvas_obj.setFont("Helvetica", 10)  # Smaller font for ID
+            canvas_obj.setFillColor(self.text_color)
+            
+            for part in parts:
+                if part.strip():  # Skip empty parts
+                    # Wrap long parts if needed
+                    if canvas_obj.stringWidth(part, "Helvetica", 10) > max_width:
+                        # Break very long parts
+                        words = part.split('_')
+                        current_line = ""
+                        for word in words:
+                            test_line = current_line + word + "_"
+                            if canvas_obj.stringWidth(test_line, "Helvetica", 10) < max_width:
+                                current_line = test_line
+                            else:
+                                if current_line:
+                                    canvas_obj.drawString(self.safe_margin, y_pos, current_line.rstrip('_'))
+                                    y_pos -= 12
+                                current_line = word + "_"
+                        if current_line:
+                            canvas_obj.drawString(self.safe_margin, y_pos, current_line.rstrip('_'))
+                            y_pos -= 12
+                    else:
+                        canvas_obj.drawString(self.safe_margin, y_pos, part)
+                        y_pos -= 12
         else:
-            formatted_id = question_id
+            # Simple ID without '+'
+            canvas_obj.setFont("Helvetica", 10)
+            canvas_obj.setFillColor(self.text_color)
+            canvas_obj.drawString(self.safe_margin, y_pos, question_id)
+            y_pos -= 15
         
-        # Draw ID text
-        self.draw_text_with_wrapping(
-            canvas_obj, 
-            formatted_id, 
-            self.safe_margin, 
-            y_pos, 
-            max_width, 
-            font_name="Helvetica", 
-            font_size=14
-        )
+        # Add some spacing
+        y_pos -= 15
         
-        # Draw prompt section
-        y_pos -= 100
-        canvas_obj.setFont("Helvetica-Bold", 18)
+        # Draw prompt section (more compact)
+        canvas_obj.setFont("Helvetica-Bold", 16)
         canvas_obj.setFillColor(self.primary_color)
-        canvas_obj.drawString(self.safe_margin, y_pos, f"Initial Prompt: {prompt}")
+        canvas_obj.drawString(self.safe_margin, y_pos, "Initial Prompt:")
+        y_pos -= 25
+        
+        # Draw prompt text (compact)
+        canvas_obj.setFont("Helvetica", 12)
+        canvas_obj.setFillColor(self.text_color)
+        canvas_obj.drawString(self.safe_margin, y_pos, prompt)
+        y_pos -= 30
+        
+        # DEDICATED SPACE FOR PROMPT IMAGE
+        # Reserve specific area for prompt image (2.5 inches height)
+        image_area_height = 2.5 * inch
+        image_area_width = self.content_width
+        image_start_y = y_pos
+        image_end_y = image_start_y - image_area_height
+        
+        # Draw a subtle border around image area for debugging (remove in production)
+        # canvas_obj.setStrokeColor(HexColor('#e5e7eb'))
+        # canvas_obj.setLineWidth(1)
+        # canvas_obj.rect(self.safe_margin, image_end_y, image_area_width, image_area_height, fill=0, stroke=1)
         
         # Add prompt image if provided
         if prompt_image is not None:
-            temp_image_path = self.prepare_image(prompt_image)
-            if temp_image_path:
-                # Position image in lower portion of slide
-                y_pos -= 40
-                available_height = y_pos - self.safe_margin - 60  # Leave space for logo
+            try:
+                print("Processing prompt image...")
                 
-                if available_height > 50:  # Only draw if there's enough space
-                    img = Image.open(temp_image_path)
+                # CRITICAL: Reset file pointer and read the image properly
+                prompt_image.seek(0)
+                image_data = prompt_image.read()
+                print(f"Read {len(image_data)} bytes from prompt image")
+                
+                # Create a new temporary file with the image data
+                temp_image = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                temp_image.write(image_data)
+                temp_image.close()
+                
+                # Add to temp files for cleanup
+                self.temp_files.append(temp_image.name)
+                
+                # Verify the file exists and has content
+                if os.path.exists(temp_image.name) and os.path.getsize(temp_image.name) > 0:
+                    print(f"Created temp image file: {temp_image.name}, size: {os.path.getsize(temp_image.name)} bytes")
+                    
+                    # Open and process the image
+                    img = Image.open(temp_image.name)
                     img_width, img_height = img.size
+                    print(f"Image dimensions: {img_width}x{img_height}")
                     
-                    # Scale to fit available space
-                    if img_height > available_height:
-                        ratio = available_height / img_height
-                        new_width = int(img_width * ratio)
-                        new_height = int(img_height * ratio)
-                    else:
-                        new_width = img_width
-                        new_height = img_height
+                    # Calculate scaling to fit in dedicated image area
+                    width_ratio = image_area_width / img_width
+                    height_ratio = image_area_height / img_height
+                    scale_ratio = min(width_ratio, height_ratio, 1.0)  # Don't upscale
                     
-                    # Center horizontally
-                    x = (self.page_width - new_width) / 2
-                    y = y_pos - new_height
+                    new_width = int(img_width * scale_ratio)
+                    new_height = int(img_height * scale_ratio)
                     
-                    canvas_obj.drawImage(temp_image_path, x, y, 
-                                       width=new_width, height=new_height)
+                    # Center the image in the dedicated area
+                    image_x = self.safe_margin + (image_area_width - new_width) / 2
+                    image_y = image_end_y + (image_area_height - new_height) / 2
+                    
+                    print(f"Drawing image at ({image_x}, {image_y}) with size {new_width}x{new_height}")
+                    
+                    # Draw the image
+                    canvas_obj.drawImage(
+                        temp_image.name, 
+                        image_x, 
+                        image_y, 
+                        width=new_width, 
+                        height=new_height,
+                        preserveAspectRatio=True
+                    )
+                    
+                    print("Successfully drew prompt image on slide")
+                else:
+                    print(f"Temp image file issue: exists={os.path.exists(temp_image.name)}, size={os.path.getsize(temp_image.name) if os.path.exists(temp_image.name) else 'N/A'}")
+                    
+            except Exception as e:
+                print(f"Error processing prompt image: {str(e)}")
+                print(f"Error details: {traceback.format_exc()}")
+                # Continue without the image rather than failing
+        else:
+            print("No prompt image provided")
         
         # Draw company logo
         self.draw_company_logo(canvas_obj)
@@ -605,20 +682,20 @@ class PDFGenerator:
 
 def get_step_status(current_page):
     """Get the status of each step based on session state"""
-    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission"]
+    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]
     statuses = []
     
     for i, step in enumerate(steps):
         if step == current_page:
             statuses.append("active")
-        elif step in ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission"]:
+        elif step in ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]:
             if step == "Metadata Input" and all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
                 statuses.append("completed")
             elif step == "Image Upload" and all(key in st.session_state for key in ['model1_images', 'model2_images']):
                 statuses.append("completed")
             elif step == "PDF Generation" and 'pdf_buffer' in st.session_state:
                 statuses.append("completed")
-            elif step == "Form Submission" and st.session_state.get('form_submitted', False):
+            elif step == "Upload to Drive" and st.session_state.get('uploaded_to_drive', False):
                 statuses.append("completed")
             else:
                 statuses.append("")
@@ -629,7 +706,7 @@ def get_step_status(current_page):
 
 def display_step_indicator(current_page):
     """Display the step indicator"""
-    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission"]
+    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]
     
     if current_page == "Help":
         return
@@ -682,30 +759,8 @@ def generate_filename(model1: str, model2: str) -> str:
     return f"SxS_Comparison_{model1_clean}_vs_{model2_clean}_{timestamp}.pdf"
 
 def display_google_form():
-    """Display the Google Form"""
-    form_url = "https://docs.google.com/forms/d/e/1FAIpQLSeAFiZgcylypm6JP_uBGbj2Cmz3Syl-ZMqj6ZHut4xsg7_g_Q/viewform"
-    
-    iframe_html = f"""
-    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-        <iframe src="{form_url}?embedded=true" 
-                width="100%" 
-                height="600" 
-                frameborder="0" 
-                marginheight="0" 
-                marginwidth="0">
-            Loading Google Form...
-        </iframe>
-    </div>
-    """
-    
-    try:
-        st.components.v1.html(iframe_html, height=620)
-    except Exception as e:
-        st.error(f"Error loading form: {str(e)}")
-        st.markdown(f"""
-        ### 🔗 Direct Form Access
-        [Click here to open the Google Form]({form_url})
-        """)
+    """Placeholder for Google Drive integration"""
+    pass  # Remove form functionality
 
 def main():
     # Header
@@ -718,7 +773,7 @@ def main():
     
     # Sidebar navigation
     st.sidebar.title("🧭 Navigation")
-    page = st.sidebar.radio("Go to", ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission", "Help"])
+    page = st.sidebar.radio("Go to", ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive", "Help"])
     
     # Display step indicator
     display_step_indicator(page)
