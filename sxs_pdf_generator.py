@@ -1,15 +1,15 @@
 import streamlit as st
 import io
-from PIL import Image, ImageDraw, ImageFont
+import base64
+from PIL import Image
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
-from reportlab.lib.colors import black, white, blue, red
-import base64
+from reportlab.lib.utils import ImageReader
 from datetime import datetime
-import os
 import tempfile
+import os
 import traceback
+from typing import List, Optional, BinaryIO
 
 # Configure page
 st.set_page_config(
@@ -66,7 +66,7 @@ st.markdown("""
         padding: 2rem;
         text-align: center;
         margin: 1rem 0;
-        background-color: #f8f9fa;
+        background-color: #d4edda;
     }
     
     .success-message {
@@ -88,7 +88,7 @@ st.markdown("""
     }
     
     .info-card {
-        background-color: #e3f2fd;
+        background-color: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
         padding: 1.5rem;
         border-radius: 10px;
         border-left: 4px solid #2196f3;
@@ -112,26 +112,31 @@ st.markdown("""
         margin: 0 0.5rem;
     }
     
-    .iframe-container {
-        width: 100%;
-        height: 600px;
-        border: 1px solid #ddd;
+    .pdf-preview {
+        border: 2px solid #e0e0e0;
         border-radius: 10px;
-        overflow: hidden;
+        padding: 1rem;
         margin: 1rem 0;
+        background-color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
-    .download-button {
-        background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+    .download-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-weight: bold;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-        margin: 10px;
+        padding: 2rem;
+        border-radius: 10px;
+        margin: 2rem 0;
+        text-align: center;
+    }
+    
+    .generation-status {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        border: 1px solid #ffeaa7;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -191,6 +196,232 @@ MODEL_COMBINATIONS = [
     ("ChatGPT", "Gemini"),
 ]
 
+class PDFGenerator:
+    """Production-grade PDF generator with proper error handling and memory management"""
+    
+    def __init__(self):
+        self.page_width, self.page_height = A4
+        self.margin = 50
+        self.temp_files = []
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()
+    
+    def cleanup(self):
+        """Clean up temporary files"""
+        for temp_file in self.temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
+            except Exception as e:
+                st.warning(f"Could not clean up temp file: {e}")
+        self.temp_files = []
+    
+    def prepare_image(self, image_file: BinaryIO) -> Optional[str]:
+        """Convert uploaded image to ReportLab compatible format"""
+        try:
+            # Reset file pointer
+            image_file.seek(0)
+            
+            # Open image with PIL
+            img = Image.open(image_file)
+            
+            # Convert to RGB if necessary
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Create temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            img.save(temp_file.name, format='JPEG', quality=95, optimize=True)
+            temp_file.close()
+            
+            self.temp_files.append(temp_file.name)
+            return temp_file.name
+            
+        except Exception as e:
+            st.error(f"Error preparing image: {str(e)}")
+            return None
+    
+    def draw_text_with_wrapping(self, canvas_obj, text: str, x: float, y: float, 
+                               max_width: float, font_name: str = "Helvetica", 
+                               font_size: int = 10):
+        """Draw text with automatic line wrapping"""
+        canvas_obj.setFont(font_name, font_size)
+        
+        # Split text into words
+        words = text.split(' ')
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + word + " "
+            if canvas_obj.stringWidth(test_line, font_name, font_size) < max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line.strip())
+                    current_line = word + " "
+                else:
+                    lines.append(word)
+                    current_line = ""
+        
+        if current_line:
+            lines.append(current_line.strip())
+        
+        # Draw lines
+        current_y = y
+        for line in lines:
+            canvas_obj.drawString(x, current_y, line)
+            current_y -= font_size + 2
+        
+        return current_y
+    
+    def draw_centered_text(self, canvas_obj, text: str, y: float, 
+                          font_name: str = "Helvetica-Bold", font_size: int = 48):
+        """Draw centered text"""
+        canvas_obj.setFont(font_name, font_size)
+        text_width = canvas_obj.stringWidth(text, font_name, font_size)
+        x = (self.page_width - text_width) / 2
+        canvas_obj.drawString(x, y, text)
+    
+    def draw_image_centered(self, canvas_obj, image_path: str, max_width: float = None, 
+                           max_height: float = None):
+        """Draw image centered on page with proper scaling"""
+        try:
+            # Get image dimensions
+            img = Image.open(image_path)
+            img_width, img_height = img.size
+            
+            # Set default max dimensions if not provided
+            if max_width is None:
+                max_width = self.page_width - 2 * self.margin
+            if max_height is None:
+                max_height = self.page_height - 2 * self.margin
+            
+            # Calculate scaling
+            if img_width > max_width or img_height > max_height:
+                ratio = min(max_width / img_width, max_height / img_height)
+                new_width = int(img_width * ratio)
+                new_height = int(img_height * ratio)
+            else:
+                new_width = img_width
+                new_height = img_height
+            
+            # Center the image
+            x = (self.page_width - new_width) / 2
+            y = (self.page_height - new_height) / 2
+            
+            # Draw image
+            canvas_obj.drawImage(image_path, x, y, width=new_width, height=new_height)
+            
+        except Exception as e:
+            st.error(f"Error drawing image: {str(e)}")
+    
+    def generate_pdf(self, question_id: str, prompt: str, model1: str, model2: str,
+                    model1_images: List[BinaryIO], model2_images: List[BinaryIO],
+                    prompt_image: Optional[BinaryIO] = None) -> io.BytesIO:
+        """Generate the complete PDF with all slides"""
+        
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        
+        try:
+            # Page 1: Question ID, Prompt, and optional prompt image
+            self._create_title_page(c, question_id, prompt, prompt_image)
+            
+            # Page 2: First model title card
+            c.showPage()
+            self.draw_centered_text(c, model1, self.page_height / 2)
+            
+            # First model screenshots (one per page)
+            for i, img_file in enumerate(model1_images):
+                c.showPage()
+                temp_image_path = self.prepare_image(img_file)
+                if temp_image_path:
+                    self.draw_image_centered(c, temp_image_path)
+            
+            # Second model title card
+            c.showPage()
+            self.draw_centered_text(c, model2, self.page_height / 2)
+            
+            # Second model screenshots (one per page)
+            for i, img_file in enumerate(model2_images):
+                c.showPage()
+                temp_image_path = self.prepare_image(img_file)
+                if temp_image_path:
+                    self.draw_image_centered(c, temp_image_path)
+            
+            # Finalize PDF
+            c.save()
+            buffer.seek(0)
+            
+            return buffer
+            
+        except Exception as e:
+            st.error(f"Error generating PDF: {str(e)}")
+            st.error(f"Traceback: {traceback.format_exc()}")
+            raise e
+    
+    def _create_title_page(self, canvas_obj, question_id: str, prompt: str, 
+                          prompt_image: Optional[BinaryIO] = None):
+        """Create the title page with ID, prompt, and optional image"""
+        
+        # Title: ID
+        canvas_obj.setFont("Helvetica-Bold", 12)
+        canvas_obj.drawString(self.margin, self.page_height - 50, "ID:")
+        
+        # Question ID with text wrapping
+        y_pos = self.page_height - 80
+        max_width = self.page_width - 2 * self.margin
+        
+        # Handle long question ID
+        if '+' in question_id:
+            words = question_id.split('+')
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + word + "+"
+                if canvas_obj.stringWidth(test_line, "Helvetica", 10) < max_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line.rstrip('+'))
+                        current_line = word + "+"
+                    else:
+                        lines.append(word)
+                        current_line = ""
+            
+            if current_line:
+                lines.append(current_line.rstrip('+'))
+            
+            canvas_obj.setFont("Helvetica", 10)
+            for line in lines:
+                canvas_obj.drawString(self.margin, y_pos, line)
+                y_pos -= 15
+        else:
+            canvas_obj.setFont("Helvetica", 10)
+            canvas_obj.drawString(self.margin, y_pos, question_id)
+            y_pos -= 15
+        
+        # Initial Prompt
+        y_pos -= 20
+        canvas_obj.setFont("Helvetica-Bold", 12)
+        canvas_obj.drawString(self.margin, y_pos, f"Initial Prompt: {prompt}")
+        y_pos -= 40
+        
+        # Add prompt image if provided
+        if prompt_image is not None:
+            temp_image_path = self.prepare_image(prompt_image)
+            if temp_image_path:
+                # Calculate available space for image
+                available_height = y_pos - 100
+                self.draw_image_centered(canvas_obj, temp_image_path, 
+                                       max_height=available_height)
+
 def get_step_status(current_page):
     """Get the status of each step based on session state"""
     steps = ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission"]
@@ -200,7 +431,6 @@ def get_step_status(current_page):
         if step == current_page:
             statuses.append("active")
         elif step in ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission"]:
-            # Check if step is completed based on session state
             if step == "Metadata Input" and all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
                 statuses.append("completed")
             elif step == "Image Upload" and all(key in st.session_state for key in ['model1_images', 'model2_images']):
@@ -220,7 +450,6 @@ def display_step_indicator(current_page):
     """Display the step indicator"""
     steps = ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission"]
     
-    # Handle "Help" page by not showing indicator
     if current_page == "Help":
         return
     
@@ -233,215 +462,50 @@ def display_step_indicator(current_page):
     
     st.markdown(step_html, unsafe_allow_html=True)
 
-def image_to_reportlab_compatible(image_file):
-    """Convert uploaded image to ReportLab compatible format"""
+def create_pdf_preview(pdf_buffer: io.BytesIO) -> str:
+    """Create a base64 encoded PDF preview for display"""
     try:
-        # Reset file pointer
-        image_file.seek(0)
-        
-        # Open image with PIL
-        img = Image.open(image_file)
-        
-        # Convert to RGB if necessary
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        
-        # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-        img.save(temp_file.name, format='JPEG', quality=95)
-        temp_file.close()
-        
-        return temp_file.name
+        pdf_buffer.seek(0)
+        pdf_data = pdf_buffer.read()
+        b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+        return b64_pdf
     except Exception as e:
-        st.error(f"Error processing image: {str(e)}")
-        return None
+        st.error(f"Error creating PDF preview: {str(e)}")
+        return ""
 
-def create_pdf_with_images(question_id, prompt, model1, model2, model1_images, model2_images, prompt_image=None):
-    """Create PDF with the standardized SxS format - PRODUCTION VERSION"""
+def display_pdf_preview(pdf_buffer: io.BytesIO):
+    """Display PDF preview in an iframe"""
     try:
-        buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        
-        # Page 1: ID and Initial Prompt
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, height - 50, "ID:")
-        
-        # Handle long question ID by wrapping text
-        y_pos = height - 80
-        max_width = width - 100
-        
-        # Split long question ID into multiple lines if needed
-        words = question_id.split('+')
-        lines = []
-        current_line = ""
-        
-        for word in words:
-            test_line = current_line + word + "+"
-            if c.stringWidth(test_line, "Helvetica", 10) < max_width:
-                current_line = test_line
-            else:
-                if current_line:
-                    lines.append(current_line.rstrip('+'))
-                    current_line = word + "+"
-                else:
-                    lines.append(word)
-                    current_line = ""
-        
-        if current_line:
-            lines.append(current_line.rstrip('+'))
-        
-        c.setFont("Helvetica", 10)
-        for line in lines:
-            c.drawString(50, y_pos, line)
-            y_pos -= 15
-        
-        # Add initial prompt
-        y_pos -= 30
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y_pos, f"Initial Prompt: {prompt}")
-        y_pos -= 30
-        
-        # Add prompt image if it exists
-        if prompt_image is not None:
-            try:
-                # Convert to ReportLab compatible format
-                temp_image_path = image_to_reportlab_compatible(prompt_image)
-                if temp_image_path:
-                    # Get image dimensions
-                    img = Image.open(temp_image_path)
-                    img_width, img_height = img.size
-                    
-                    # Scale image to fit on page
-                    max_img_width = width - 100
-                    max_img_height = 400
-                    
-                    if img_width > max_img_width or img_height > max_img_height:
-                        ratio = min(max_img_width / img_width, max_img_height / img_height)
-                        new_width = int(img_width * ratio)
-                        new_height = int(img_height * ratio)
-                    else:
-                        new_width = img_width
-                        new_height = img_height
-                    
-                    # Draw image
-                    c.drawImage(temp_image_path, 50, y_pos - new_height, 
-                              width=new_width, height=new_height)
-                    y_pos -= new_height + 20
-                    
-                    # Clean up temp file
-                    os.unlink(temp_image_path)
-                    
-            except Exception as e:
-                st.warning(f"Could not add prompt image: {str(e)}")
-        
-        c.showPage()
-        
-        # Page 2: First Model Brand Page
-        c.setFont("Helvetica-Bold", 48)
-        text_width = c.stringWidth(model1, "Helvetica-Bold", 48)
-        x = (width - text_width) / 2
-        y = height / 2
-        c.drawString(x, y, model1)
-        c.showPage()
-        
-        # Add Model 1 images
-        for i, img_file in enumerate(model1_images):
-            try:
-                temp_image_path = image_to_reportlab_compatible(img_file)
-                if temp_image_path:
-                    # Get image dimensions
-                    img = Image.open(temp_image_path)
-                    img_width, img_height = img.size
-                    
-                    # Scale image to fit on page
-                    max_img_width = width - 100
-                    max_img_height = height - 100
-                    
-                    if img_width > max_img_width or img_height > max_img_height:
-                        ratio = min(max_img_width / img_width, max_img_height / img_height)
-                        new_width = int(img_width * ratio)
-                        new_height = int(img_height * ratio)
-                    else:
-                        new_width = img_width
-                        new_height = img_height
-                    
-                    # Center the image on the page
-                    x = (width - new_width) / 2
-                    y = (height - new_height) / 2
-                    
-                    # Draw image
-                    c.drawImage(temp_image_path, x, y, width=new_width, height=new_height)
-                    c.showPage()
-                    
-                    # Clean up temp file
-                    os.unlink(temp_image_path)
-                    
-            except Exception as e:
-                st.warning(f"Error adding {model1} image {i+1}: {str(e)}")
-                continue
-        
-        # Model 2 Brand Page
-        c.setFont("Helvetica-Bold", 48)
-        text_width = c.stringWidth(model2, "Helvetica-Bold", 48)
-        x = (width - text_width) / 2
-        y = height / 2
-        c.drawString(x, y, model2)
-        c.showPage()
-        
-        # Add Model 2 images
-        for i, img_file in enumerate(model2_images):
-            try:
-                temp_image_path = image_to_reportlab_compatible(img_file)
-                if temp_image_path:
-                    # Get image dimensions
-                    img = Image.open(temp_image_path)
-                    img_width, img_height = img.size
-                    
-                    # Scale image to fit on page
-                    max_img_width = width - 100
-                    max_img_height = height - 100
-                    
-                    if img_width > max_img_width or img_height > max_img_height:
-                        ratio = min(max_img_width / img_width, max_img_height / img_height)
-                        new_width = int(img_width * ratio)
-                        new_height = int(img_height * ratio)
-                    else:
-                        new_width = img_width
-                        new_height = img_height
-                    
-                    # Center the image on the page
-                    x = (width - new_width) / 2
-                    y = (height - new_height) / 2
-                    
-                    # Draw image
-                    c.drawImage(temp_image_path, x, y, width=new_width, height=new_height)
-                    c.showPage()
-                    
-                    # Clean up temp file
-                    os.unlink(temp_image_path)
-                    
-            except Exception as e:
-                st.warning(f"Error adding {model2} image {i+1}: {str(e)}")
-                continue
-        
-        # Finalize PDF
-        c.save()
-        buffer.seek(0)
-        return buffer
-        
+        b64_pdf = create_pdf_preview(pdf_buffer)
+        if b64_pdf:
+            pdf_display = f"""
+            <div class="pdf-preview">
+                <h4>📄 PDF Preview</h4>
+                <iframe src="data:application/pdf;base64,{b64_pdf}" 
+                        width="100%" height="600px" 
+                        style="border: none; border-radius: 5px;">
+                </iframe>
+            </div>
+            """
+            st.markdown(pdf_display, unsafe_allow_html=True)
+        else:
+            st.error("Could not generate PDF preview")
     except Exception as e:
-        st.error(f"Critical error in PDF generation: {str(e)}")
-        st.error(f"Traceback: {traceback.format_exc()}")
-        raise e
+        st.error(f"Error displaying PDF preview: {str(e)}")
+
+def generate_filename(model1: str, model2: str) -> str:
+    """Generate a standardized filename for the PDF"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model1_clean = model1.replace(" ", "_").replace(".", "")
+    model2_clean = model2.replace(" ", "_").replace(".", "")
+    return f"SxS_Comparison_{model1_clean}_vs_{model2_clean}_{timestamp}.pdf"
 
 def display_google_form():
-    """Display the Google Form with better integration"""
+    """Display the Google Form"""
     form_url = "https://docs.google.com/forms/d/e/1FAIpQLSeAFiZgcylypm6JP_uBGbj2Cmz3Syl-ZMqj6ZHut4xsg7_g_Q/viewform"
     
-    # Create iframe HTML with better parameters
     iframe_html = f"""
-    <div class="iframe-container">
+    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
         <iframe src="{form_url}?embedded=true" 
                 width="100%" 
                 height="600" 
@@ -456,20 +520,10 @@ def display_google_form():
     try:
         st.components.v1.html(iframe_html, height=620)
     except Exception as e:
-        st.error(f"Error loading embedded form: {str(e)}")
-        
-        # Fallback to direct link
+        st.error(f"Error loading form: {str(e)}")
         st.markdown(f"""
         ### 🔗 Direct Form Access
-        
-        The embedded form could not be loaded. Please use the direct link below:
-        
-        **[Click here to open the Google Form]({form_url})**
-        
-        Or copy and paste this URL into your browser:
-        ```
-        {form_url}
-        ```
+        [Click here to open the Google Form]({form_url})
         """)
 
 def main():
@@ -481,21 +535,21 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar for navigation
+    # Sidebar navigation
     st.sidebar.title("🧭 Navigation")
     page = st.sidebar.radio("Go to", ["Metadata Input", "Image Upload", "PDF Generation", "Form Submission", "Help"])
     
-    # Display step indicator (only for main workflow pages)
+    # Display step indicator
     display_step_indicator(page)
     
-    # Display current session info in sidebar
+    # Session info in sidebar
     if 'question_id' in st.session_state:
         st.sidebar.markdown("### 📋 Current Session")
         st.sidebar.info(f"**ID:** {st.session_state.question_id[:20]}...")
         if 'model1' in st.session_state and 'model2' in st.session_state:
             st.sidebar.info(f"**Models:** {st.session_state.model1} vs {st.session_state.model2}")
     
-    # Add session stats
+    # Session stats
     if any(key in st.session_state for key in ['model1_images', 'model2_images']):
         st.sidebar.markdown("### 📊 Session Stats")
         if 'model1_images' in st.session_state:
@@ -503,6 +557,7 @@ def main():
         if 'model2_images' in st.session_state:
             st.sidebar.metric("Model 2 Images", len(st.session_state.model2_images))
     
+    # Page content
     if page == "Metadata Input":
         st.header("📝 Step 1: Metadata Input")
         
@@ -565,7 +620,6 @@ def main():
                         <strong>✅ Success!</strong> Metadata saved successfully! You can now proceed to Step 2.
                     </div>
                     """, unsafe_allow_html=True)
-                    
                     st.balloons()
                 else:
                     st.markdown("""
@@ -639,7 +693,7 @@ def main():
                     for i, img in enumerate(model2_images):
                         st.image(img, caption=f"{st.session_state.model2} - Image {i+1}", use_container_width=True)
         
-        # Save images button
+        # Save images
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
             if st.button("💾 Save Images", type="primary"):
@@ -652,7 +706,6 @@ def main():
                         <strong>✅ Success!</strong> Images saved successfully! You can now proceed to Step 3.
                     </div>
                     """, unsafe_allow_html=True)
-                    
                     st.balloons()
                 else:
                     st.markdown("""
@@ -705,32 +758,35 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("🔄 Generate PDF", type="primary"):
+        # Generation button
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("🔄 Generate PDF", type="primary", use_container_width=True):
                 with st.spinner("Generating PDF..."):
                     try:
-                        pdf_buffer = create_pdf_with_images(
-                            st.session_state.question_id,
-                            st.session_state.prompt_text,
-                            st.session_state.model1,
-                            st.session_state.model2,
-                            st.session_state.model1_images,
-                            st.session_state.model2_images,
-                            st.session_state.get('prompt_image')
-                        )
-                        
-                        st.session_state.pdf_buffer = pdf_buffer
-                        
-                        st.markdown("""
-                        <div class="success-message">
-                            <strong>✅ Success!</strong> PDF generated successfully! You can now download it or proceed to Step 4.
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        st.balloons()
-                        
+                        # Use context manager for proper cleanup
+                        with PDFGenerator() as pdf_gen:
+                            pdf_buffer = pdf_gen.generate_pdf(
+                                st.session_state.question_id,
+                                st.session_state.prompt_text,
+                                st.session_state.model1,
+                                st.session_state.model2,
+                                st.session_state.model1_images,
+                                st.session_state.model2_images,
+                                st.session_state.get('prompt_image')
+                            )
+                            
+                            # Store in session state
+                            st.session_state.pdf_buffer = pdf_buffer
+                            st.session_state.pdf_generated = True
+                            
+                            st.markdown("""
+                            <div class="success-message">
+                                <strong>✅ Success!</strong> PDF generated successfully! Review the preview below and download when ready.
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.balloons()
+                            
                     except Exception as e:
                         st.markdown(f"""
                         <div class="error-message">
@@ -738,23 +794,48 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
         
-        with col2:
-            if 'pdf_buffer' in st.session_state:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"SxS_Comparison_{st.session_state.model1.replace(' ', '_')}_vs_{st.session_state.model2.replace(' ', '_')}_{timestamp}.pdf"
-                
+        # PDF Preview and Download Section
+        if st.session_state.get('pdf_generated') and 'pdf_buffer' in st.session_state:
+            st.markdown("---")
+            
+            # PDF Preview
+            st.subheader("📄 PDF Preview")
+            display_pdf_preview(st.session_state.pdf_buffer)
+            
+            # Download Section
+            st.markdown("""
+            <div class="download-section">
+                <h3>📥 Download Your PDF</h3>
+                <p>Your PDF has been generated successfully. Click the button below to download it.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Download button
+            filename = generate_filename(st.session_state.model1, st.session_state.model2)
+            
+            # Reset buffer position for download
+            st.session_state.pdf_buffer.seek(0)
+            pdf_data = st.session_state.pdf_buffer.read()
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
                 st.download_button(
                     label="📥 Download PDF",
-                    data=st.session_state.pdf_buffer,
+                    data=pdf_data,
                     file_name=filename,
                     mime="application/pdf",
-                    type="secondary"
+                    type="primary",
+                    use_container_width=True
                 )
+            
+            # File info
+            st.info(f"📄 **Filename:** {filename}")
+            st.info(f"📊 **File Size:** {len(pdf_data) / 1024:.1f} KB")
     
     elif page == "Form Submission":
         st.header("📝 Step 4: Form Submission")
         
-        if 'pdf_buffer' not in st.session_state:
+        if not st.session_state.get('pdf_generated'):
             st.markdown("""
             <div class="error-message">
                 <strong>⚠️ Prerequisites Missing:</strong> Please complete Step 3 (PDF Generation) first.
@@ -762,16 +843,17 @@ def main():
             """, unsafe_allow_html=True)
             return
         
-        # Quick download button for convenience
+        # Quick download for convenience
         if 'pdf_buffer' in st.session_state:
+            filename = generate_filename(st.session_state.model1, st.session_state.model2)
+            st.session_state.pdf_buffer.seek(0)
+            pdf_data = st.session_state.pdf_buffer.read()
+            
             col1, col2, col3 = st.columns([1, 1, 1])
             with col2:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"SxS_Comparison_{st.session_state.model1.replace(' ', '_')}_vs_{st.session_state.model2.replace(' ', '_')}_{timestamp}.pdf"
-                
                 st.download_button(
                     label="📥 Download PDF (Required for Form)",
-                    data=st.session_state.pdf_buffer,
+                    data=pdf_data,
                     file_name=filename,
                     mime="application/pdf",
                     type="primary",
@@ -780,20 +862,13 @@ def main():
         
         st.markdown("---")
         
-        # Display the Google Form
+        # Form submission
         st.subheader("📋 Submission Form")
         
         st.markdown("""
         <div class="info-card">
             <h4>📋 Submit Your Generated PDF</h4>
             <p>Your PDF has been generated successfully! Please use the form below to submit your comparison document.</p>
-            <p><strong>Instructions:</strong></p>
-            <ul>
-                <li>✅ Download your PDF using the button above</li>
-                <li>📝 Fill out the form below with the required information</li>
-                <li>📎 Upload your generated PDF file using the form</li>
-                <li>✉️ Submit the form to complete the process</li>
-            </ul>
         </div>
         """, unsafe_allow_html=True)
         
@@ -801,75 +876,63 @@ def main():
         
         st.markdown("---")
         
-        # Completion section
+        # Completion
         st.subheader("🎉 Completion")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("✅ Mark as Submitted", type="secondary", help="Click after successfully submitting the form"):
+            if st.button("✅ Mark as Submitted", type="secondary"):
                 st.session_state.form_submitted = True
                 st.success("🎉 Great! Your submission has been recorded.")
                 st.balloons()
         
         with col2:
-            if st.button("🔄 Start New Comparison", type="primary", help="Clear all data and start fresh"):
-                # Clear all session state except form submission status
+            if st.button("🔄 Start New Comparison", type="primary"):
+                # Clear session state
                 keys_to_clear = [key for key in st.session_state.keys() if key != 'form_submitted']
                 for key in keys_to_clear:
                     del st.session_state[key]
                 st.success("🆕 Ready for a new comparison!")
                 st.rerun()
-        
-        # Show submission status
-        if st.session_state.get('form_submitted', False):
-            st.markdown("""
-            <div class="success-message">
-                <strong>✅ Submission Completed!</strong> 
-                Your SxS comparison has been successfully submitted. 
-                Thank you for your contribution!
-            </div>
-            """, unsafe_allow_html=True)
     
     elif page == "Help":
         st.header("❓ Help & Documentation")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["📋 Instructions", "🔧 Troubleshooting", "📊 Examples", "🚀 Tips"])
+        tab1, tab2, tab3 = st.tabs(["📋 Instructions", "🔧 Troubleshooting", "📊 Examples"])
         
         with tab1:
             st.markdown("""
             ### 📋 How to Use This App
             
             #### Step 1: Metadata Input
-            - Enter the **Question ID** (unique identifier for this comparison)
-            - Select the **Model Combination** you're comparing
+            - Enter the **Question ID** (unique identifier)
+            - Select the **Model Combination** being compared
             - Enter the **Initial Prompt** used for both models
-            - Optionally upload an image if the prompt included visual content
+            - Optionally upload a **Prompt Image**
             
             #### Step 2: Image Upload
-            - Upload screenshots for the **first model** (interface, responses, etc.)
-            - Upload screenshots for the **second model**
+            - Upload screenshots for both models
             - Preview images to ensure they're correct
-            - The app supports PNG, JPG, and JPEG formats
+            - Supports PNG, JPG, and JPEG formats
             
             #### Step 3: PDF Generation
             - Review your inputs in the summary
-            - Click **Generate PDF** to create the standardized document
+            - Click **Generate PDF** to create the document
+            - **Preview** the PDF before downloading
             - **Download** the generated PDF file
             
             #### Step 4: Form Submission
-            - Use the integrated Google Form to submit your generated PDF
-            - Fill out the required form fields
-            - Upload your PDF using the form's file upload feature
-            - Submit the form to complete the process
+            - Use the Google Form to submit your PDF
+            - Fill out required fields and upload your PDF
+            - Mark as submitted when complete
             
             ### 📄 PDF Structure
-            The generated PDF follows this standardized format:
-            1. **Cover Page**: Question ID and Initial Prompt (with optional image)
-            2. **First Model Brand Page**: Model name/logo
-            3. **First Model Screenshots**: Interface and responses
-            4. **Second Model Brand Page**: Model name/logo  
-            5. **Second Model Screenshots**: Interface and responses
+            1. **Title Page**: Question ID, Prompt, and optional image
+            2. **First Model Brand Page**: Model name
+            3. **First Model Screenshots**: One image per page
+            4. **Second Model Brand Page**: Model name
+            5. **Second Model Screenshots**: One image per page
             """)
         
         with tab2:
@@ -877,22 +940,16 @@ def main():
             ### 🔧 Troubleshooting
             
             #### Common Issues:
-            - **Images not displaying**: Check file format (PNG, JPG, JPEG only) and size
-            - **PDF generation failed**: Ensure all required fields are filled
-            - **Download not working**: Try refreshing the page and regenerating
-            - **Form not loading**: Check your internet connection and try refreshing
+            - **PDF not downloading**: Check browser popup blocker settings
+            - **Images not processing**: Ensure files are under 200MB
+            - **Form not loading**: Try refreshing the page
+            - **Preview not showing**: Browser may need PDF viewer plugin
             
             #### Best Practices:
-            - Use clear, high-resolution screenshots
-            - Capture complete interface views
-            - Preview images before generating PDF
-            - Keep filenames descriptive for organization
-            - Test with sample data first
-            
-            #### Error Messages:
-            - **"Prerequisites Missing"**: Complete previous steps first
-            - **"Please fill in all required fields"**: Check for missing mandatory information
-            - **"Failed to generate PDF"**: Check image formats and sizes
+            - Use high-resolution screenshots (1920x1080 recommended)
+            - Ensure images are in supported formats (PNG, JPG, JPEG)
+            - Keep total file size reasonable for web upload
+            - Test download before submitting form
             """)
         
         with tab3:
@@ -903,10 +960,9 @@ def main():
             - **Bard 2.5 Pro** vs **AIS 2.5 PRO**
             - **AIS 2.5 PRO** vs **cGPT o3**
             - **AIS 2.5 Flash** vs **cGPT 4o**
-            - **Bard 2.5 Pro** vs **cGPT o3**
-            - **Bard 2.5 Flash** vs **cGPT 4o**
+            - **Gemini** vs **ChatGPT**
             
-            #### Sample Question ID Format:
+            #### Sample Question ID:
             ```
             bfdf67160ca3eca9b65f040e350b2f1f+bard_data+coach_P128628_quality_sxs_e2e_experience_learning_and_academic_help_frozen_pool_human_eval_en-US-10+INTERNAL+en:5641200679061623267
             ```
@@ -915,41 +971,6 @@ def main():
             ```
             Help me do this [image of math problem]
             ```
-            
-            #### File Output Format:
-            ```
-            SxS_Comparison_Bard_2.5_Pro_vs_cGPT_o3_20240118_143052.pdf
-            ```
-            """)
-        
-        with tab4:
-            st.markdown("""
-            ### 🚀 Pro Tips
-            
-            #### Workflow Optimization:
-            1. **Prepare screenshots** before starting the app
-            2. **Use consistent naming** for easy identification
-            3. **Test with sample data** first
-            4. **Save frequently** during the process
-            5. **Review the summary** before generating PDF
-            
-            #### Screenshot Guidelines:
-            - **Full interface capture**: Include entire conversation flow
-            - **High resolution**: Use at least 1920x1080 for clarity
-            - **Consistent framing**: Keep similar screenshot boundaries
-            - **Sequential order**: Upload images in conversation order
-            
-            #### PDF Optimization:
-            - **Review metadata** before generation
-            - **Check image quality** in preview
-            - **Verify model sequence** matches your comparison
-            - **Test download** before form submission
-            
-            #### Form Submission:
-            - **Double-check PDF** before uploading
-            - **Fill all required fields** in the form
-            - **Keep backup copies** of your work
-            - **Submit promptly** after generation
             """)
 
 if __name__ == "__main__":
