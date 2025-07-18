@@ -20,12 +20,10 @@ gatherUsageStats = false
 serverPort = 8501
 
 [theme]
-# Theme configuration
-primaryColor = "#4285f4"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#262730"
-font = "sans serif"
+primaryColor = "#00d4ff"          # Bright cyan
+backgroundColor = "#0e1117"       # Dark background
+secondaryBackgroundColor = "#1e2936"
+textColor = "#ffffff"
 
 [client]
 # Client configuration

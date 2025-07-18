@@ -24,7 +24,7 @@ st.markdown("""
     .main-header {
         text-align: center;
         padding: 2rem 0;
-        background: linear-gradient(90deg, #4285f4 0%, #34a853 100%);
+        background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
         color: white;
         border-radius: 10px;
         margin-bottom: 2rem;
@@ -35,7 +35,7 @@ st.markdown("""
         justify-content: space-between;
         margin: 2rem 0;
         padding: 1rem;
-        background-color: #f0f2f6;
+        background-color: #1a1a2e;
         border-radius: 10px;
     }
     
@@ -81,7 +81,7 @@ st.markdown("""
     }
     
     .info-card {
-        background-color: #e3f2fd;
+        background-color: #1e40af;
         padding: 1.5rem;
         border-radius: 10px;
         border-left: 4px solid #2196f3;
