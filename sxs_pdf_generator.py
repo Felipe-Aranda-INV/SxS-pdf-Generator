@@ -89,7 +89,7 @@ st.markdown("""
     }
     
     .info-card {
-        background-color: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
+        background-color: #e3f2fd;
         padding: 1.5rem;
         border-radius: 10px;
         border-left: 4px solid #2196f3;
