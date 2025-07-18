@@ -20,10 +20,10 @@ gatherUsageStats = false
 serverPort = 8501
 
 [theme]
-primaryColor = "#00d4ff"          # Bright cyan
-backgroundColor = "#0e1117"       # Dark background
-secondaryBackgroundColor = "#1e2936"
-textColor = "#ffffff"
+primaryColor = "#4285f4"           # Google blue
+backgroundColor = "#ffffff"        # White background
+secondaryBackgroundColor = "#f8f9fa"  # Light gray
+textColor = "#1f2937"              # Dark gray
 
 [client]
 # Client configuration
