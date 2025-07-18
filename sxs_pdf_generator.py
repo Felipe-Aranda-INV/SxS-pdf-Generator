@@ -71,7 +71,8 @@ st.markdown("""
         padding: 2rem;
         text-align: center;
         margin: 1rem 0;
-        background-color: #f8f9fa;
+        background-color: #DCF58F;
+        color: black;
     }
     
     .success-message {
@@ -110,7 +111,8 @@ st.markdown("""
     .stat-card {
         text-align: center;
         padding: 1rem;
-        background-color: #f8f9fa;
+        background-color: #DCF58F;
+        color: black;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         flex: 1;
@@ -210,14 +212,14 @@ class PDFGenerator:
         self.page_height = 5.625 * inch  # 405 points
         self.slide_format = (self.page_width, self.page_height)
         
-        # Safe margins (1 inch from edges as recommended)
-        self.safe_margin = 0.5 * inch
+        # Safe margins (reduced for larger images)
+        self.safe_margin = 0.25 * inch  # Reduced from 0.5" to 0.25"
         self.content_width = self.page_width - (2 * self.safe_margin)
         self.content_height = self.page_height - (2 * self.safe_margin)
         
-        # Company logo dimensions and position
-        self.logo_size = 0.4 * inch  # 40 points
-        self.logo_margin = 0.2 * inch  # 20 points from edge
+        # Company logo dimensions and position (icon only, bigger)
+        self.logo_size = 0.5 * inch    # Bigger square logo (36 points)
+        self.logo_margin = 0.2 * inch  # Margin from edge
         
         # Color scheme (Google Slides Material Design)
         self.primary_color = HexColor('#4a86e8')  # Cornflower Blue
@@ -231,38 +233,36 @@ class PDFGenerator:
         self._setup_company_logo()
     
     def _setup_company_logo(self):
-        """Download and cache the Invisible company logo"""
+        """Setup the Invisible company icon (circular logo only)"""
         try:
-            # Create a simple text-based logo since we can't download external images
-            # In production, you would download the actual logo file
+            # Create the Invisible icon without text
             logo_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
             
-            # Create a simple logo using PIL
-            from PIL import Image, ImageDraw, ImageFont
+            # Create a clean circular icon version
+            from PIL import Image, ImageDraw
             
-            # Create a simple circular logo with "I" for Invisible
-            logo_img = Image.new('RGBA', (120, 120), (0, 0, 0, 0))
+            # Create larger icon (72x72 pixels for crisp rendering)
+            icon_size = 72
+            logo_img = Image.new('RGBA', (icon_size, icon_size), (255, 255, 255, 0))  # Transparent background
             draw = ImageDraw.Draw(logo_img)
             
-            # Draw circle background
-            draw.ellipse([10, 10, 110, 110], fill=(0, 0, 0, 255))
+            # Draw the circular logo (based on the SVG design)
+            circle_margin = 4
+            circle_size = icon_size - (2 * circle_margin)
             
-            # Draw white "I" in center
-            try:
-                font = ImageFont.truetype("arial.ttf", 60)
-            except:
-                font = ImageFont.load_default()
+            # Draw outer circle (dark)
+            draw.ellipse([circle_margin, circle_margin, 
+                         circle_margin + circle_size, circle_margin + circle_size], 
+                        fill=(15, 15, 15, 255), outline=None)
             
-            # Get text size and center it
-            text = "I"
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+            # Draw inner square (white) - represents the square cutout in the SVG
+            inner_margin = 12
+            inner_size = circle_size - (2 * inner_margin)
+            inner_x = circle_margin + inner_margin
+            inner_y = circle_margin + inner_margin
             
-            x = (120 - text_width) // 2
-            y = (120 - text_height) // 2 - 5  # Slight adjustment
-            
-            draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+            draw.rectangle([inner_x, inner_y, inner_x + inner_size, inner_y + inner_size], 
+                         fill=(255, 255, 255, 255))
             
             # Save logo
             logo_img.save(logo_temp.name, format='PNG')
@@ -317,16 +317,16 @@ class PDFGenerator:
             return None
     
     def draw_company_logo(self, canvas_obj):
-        """Draw the Invisible company logo in the bottom right corner"""
+        """Draw the Invisible company icon in the bottom right corner"""
         if not self.company_logo_path:
             return
             
         try:
-            # Position logo in bottom right corner
+            # Position icon in bottom right corner
             logo_x = self.page_width - self.logo_size - self.logo_margin
             logo_y = self.logo_margin
             
-            # Draw logo with proper scaling
+            # Draw logo as square icon
             canvas_obj.drawImage(
                 self.company_logo_path,
                 logo_x,
@@ -537,15 +537,17 @@ class PDFGenerator:
         self.draw_company_logo(canvas_obj)
     
     def create_image_slide(self, canvas_obj, image_path: str):
-        """Create an image slide with Google Slides styling"""
+        """Create an image slide with Google Slides styling and maximized image space"""
         
         # Draw background
         self.draw_slide_background(canvas_obj)
         
-        # Draw image centered, leaving space for logo
-        max_height = self.content_height - 60  # Leave space for logo
+        # Draw image centered, maximizing space (leaving minimal space for logo)
+        max_height = self.content_height - 20  # Leave minimal space for logo
+        max_width = self.content_width - 20    # Small buffer for aesthetics
+        
         self.draw_image_centered(canvas_obj, image_path, 
-                               max_width=self.content_width, 
+                               max_width=max_width, 
                                max_height=max_height)
         
         # Draw company logo
@@ -681,7 +683,7 @@ def generate_filename(model1: str, model2: str) -> str:
 
 def display_google_form():
     """Display the Google Form"""
-    form_url = "https://docs.google.com/forms/d/e/1FAIpQLScytuZf0c0TVca_aR_hAinZUG0SrRgPJmXgqgtxQIsEeubN1g/viewform?usp=header"
+    form_url = "https://docs.google.com/forms/d/e/1FAIpQLSeAFiZgcylypm6JP_uBGbj2Cmz3Syl-ZMqj6ZHut4xsg7_g_Q/viewform"
     
     iframe_html = f"""
     <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
@@ -710,7 +712,7 @@ def main():
     st.markdown("""
     <div class="main-header">
         <h1>📊 SxS Model Comparison PDF Generator</h1>
-        <p>Generate standardized PDF documents for Chiron's side-by-side model comparisons</p>
+        <p>Generate standardized PDF documents for side-by-side model comparisons</p>
     </div>
     """, unsafe_allow_html=True)
     
