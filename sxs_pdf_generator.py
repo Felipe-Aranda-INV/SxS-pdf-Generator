@@ -710,7 +710,7 @@ def main():
     st.markdown("""
     <div class="main-header">
         <h1>📊 SxS Model Comparison PDF Generator</h1>
-        <p>Generate standardized PDF documents for side-by-side model comparisons</p>
+        <p>Generate standardized PDF documents for Chiron's side-by-side model comparisons</p>
     </div>
     """, unsafe_allow_html=True)
     
