@@ -1,6 +1,6 @@
 # SxS-pdf-Generator
 
-Streamlit app for generating standardized PDF documents for side-by-side AI model comparisons with integrated Google Form submission.
+Streamlit app for generating standardized PDF documents for side-by-side AI model comparisons with integration to Google Sheets.
 
 ## 🚀 Features
 
@@ -15,19 +15,13 @@ Streamlit app for generating standardized PDF documents for side-by-side AI mode
 ## 📦 Production Deployment 🔧 Environment Configuration
 
 ### Required Files Structure
-```
+
 sxs-pdf-generator/
 ├── sxs_pdf_generator.py        # Main application
 ├── requirements.txt            # Dependencies
 ├── .streamlit/
 │   └── config.toml            # Streamlit configuration
 ├── README.md                  # This file
-├── .gitignore                 # Git ignore rules
-├── Dockerfile                 # Docker configuration
-├── setup.py                   # Package setup
-├── Procfile                   # Heroku configuration
-└── runtime.txt                # Python version
-```
 
 ### Configuration Files
 
@@ -66,7 +60,7 @@ Main Application
 ├── Metadata Input (Step 1)
 ├── Image Upload (Step 2)
 ├── PDF Generation (Step 3)
-├── Form Submission (Step 4)
+├── Form/Doc Submission (Step 4)
 └── Help & Documentation
 ```
 
@@ -74,10 +68,10 @@ Main Application
 1. **User Input** → Session State
 2. **Image Upload** → Temporary Storage
 3. **PDF Generation** → Buffer
-4. **Form Submission** → Google Forms
+4. **Form/Drive-Sheets Submission** → Google Forms / Drive + Sheets
 5. **Session Reset** → Clean State
 
-## 🎯 Model Combinations Supported
+## 🎯 Model Combinations Supported as of v2 Process 7/18/25
 
 - Bard 2.5 Pro vs AIS 2.5 PRO
 - AIS 2.5 PRO vs cGPT o3
@@ -87,7 +81,7 @@ Main Application
 
 ## 📄 PDF Structure
 
-1. **Cover Page**: Question ID + Initial Prompt
+1. **Cover Page**: Question ID + Initial Prompt + optional Image
 2. **Model 1 Brand Page**: Logo/name
 3. **Model 1 Screenshots**: Interface captures
 4. **Model 2 Brand Page**: Logo/name
@@ -97,8 +91,8 @@ Main Application
 
 - **XSRF Protection**: Enabled
 - **CORS Handling**: Configured
-- **Input Validation**: Comprehensive
-- **File Type Restrictions**: Images only
+- **Input Validation**: Comprehensive?
+- **File Type Restrictions**: Images only :)
 - **Upload Size Limits**: 200MB max
 - **Session Isolation**: User-specific
 
@@ -106,13 +100,13 @@ Main Application
 
 - **Lazy Loading**: Images loaded on demand
 - **Session Caching**: Persistent state
-- **Efficient PDF Generation**: Optimized ReportLab usage
-- **Memory Management**: Proper cleanup
+- **Efficient PDF Generation**: Optimized ReportLab
+- **Memory Management**: Mexican mom cleanup
 - **Error Boundaries**: Graceful failure handling
 
 ## 🧪 Testing
 
-### Manual Testing Checklist
+### Manual Testing Checklist   ---------  REMINDER to check
 - [ ] Metadata input validation
 - [ ] Image upload functionality
 - [ ] PDF generation process
@@ -120,34 +114,6 @@ Main Application
 - [ ] Error handling scenarios
 - [ ] Cross-browser compatibility
 - [ ] Mobile responsiveness
-
-### Test Data
-- Sample Question ID format provided
-- Test images included
-- Model combinations verified
-- Form integration tested
-
-## 🚀 Deployment Checklist
-
-### Pre-deployment
-- [ ] Test all functionality locally
-- [ ] Verify Google Form integration
-- [ ] Check file upload limits
-- [ ] Validate PDF generation
-- [ ] Test error scenarios
-
-### Deployment
-- [ ] Configure environment variables
-- [ ] Set up monitoring
-- [ ] Configure logging
-- [ ] Test production URL
-- [ ] Verify form submission
-
-### Post-deployment
-- [ ] Monitor application logs
-- [ ] Track user feedback
-- [ ] Monitor performance
-- [ ] Plan updates/maintenance
 
 ## 📈 Monitoring & Analytics
 
@@ -157,19 +123,13 @@ Main Application
 - Performance monitoring
 - User interaction tracking
 
-### External Monitoring
-- Streamlit Cloud analytics
-- Google Form responses
+### Monitoring
+- Streamlit Cloud analytics (?)
+- Google Form responses (Google sheets probably)
 - Server performance metrics
-- User feedback collection
+- User feedback collection (Chiron team & agents)
 
 ## 🔧 Troubleshooting
-
-### Common Issues
-1. **Import errors**: Check requirements.txt
-2. **Form not loading**: Verify internet connection
-3. **PDF generation fails**: Check image formats
-4. **Upload timeout**: Reduce file sizes
 
 ### Debug Mode
 ```bash
@@ -183,33 +143,17 @@ For technical issues or questions:
 1. Check the Help section in the app
 2. Review this README
 3. Check application logs
-4. Contact system administrator
+4. Contact Felipe A on Slack
 
-## 🔄 Updates & Maintenance
+## 🔄 ToDo & Maintenance
 
-### Regular Maintenance
-- Update dependencies monthly
-- Monitor security advisories
-- Check Google Form integration
-- Review user feedback
-
-### Version Control
-- Use semantic versioning
-- Tag releases
-- Maintain changelog
-- Document breaking changes
+### Upcoming features
+- OCR integration
+- 
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+This project is licensed under
 
 ## 📋 Changelog
 
@@ -217,5 +161,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Initial production release
 - Multi-step workflow
 - Google Form integration
-- Professional UI/UX
+- Sleek UI/UX
 - Comprehensive error handling
