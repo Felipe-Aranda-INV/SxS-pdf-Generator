@@ -349,12 +349,12 @@ class PDFGenerator:
         canvas_obj.setStrokeColor(HexColor('#e5e7eb'))
         canvas_obj.setLineWidth(1)
         canvas_obj.rect(0, 0, self.page_width, self.page_height, fill=0, stroke=1)
+
     def draw_text_with_wrapping(self, canvas_obj, text: str, x: float, y: float, 
-                               max_width: float, font_name: str = "Helvetica", 
-                               font_size: int = 18):
-        """Draw text with automatic line wrapping - optimized for slide format"""
-        canvas_obj.setFont(font_name, font_size)
-        canvas_obj.setFillColor(self.text_color)
+                           max_width: float, font_name: str = "Helvetica", 
+                           font_size: int = 18):
+        return self.draw_wrapped_text(canvas_obj, text, x, y, max_width, 
+                                 font_name, font_size, line_height_factor=1.2)
         
         # Split text into words
         words = text.split(' ')
@@ -448,151 +448,210 @@ class PDFGenerator:
             st.error(f"Error drawing image: {str(e)}")
     
     def create_title_slide(self, canvas_obj, question_id: str, prompt: str, 
-                          prompt_image: Optional[BinaryIO] = None):
-        """Create the title slide with Google Slides styling and dedicated image space"""
+                      prompt_image: Optional[BinaryIO] = None):
         
-        # Draw background
+    # Draw background
         self.draw_slide_background(canvas_obj)
         
-        # Start higher up on the slide for better space utilization
-        y_pos = self.page_height - self.safe_margin - 30  # Start closer to top
+        # Start from top with better spacing
+        y_pos = self.page_height - self.safe_margin - 15
         
-        # Draw title: ID (smaller, more compact)
-        canvas_obj.setFont("Helvetica-Bold", 16)
+        # === QUESTION ID SECTION (Full Width at Top) ===
+        canvas_obj.setFont("Helvetica-Bold", 14)
         canvas_obj.setFillColor(self.primary_color)
         canvas_obj.drawString(self.safe_margin, y_pos, "ID:")
-        y_pos -= 25
+        y_pos -= 18
         
-        # Draw question ID with better formatting
-        max_width = self.content_width
+        # Draw question ID with proper multi-line wrapping
+        y_pos = self.draw_wrapped_text(canvas_obj, question_id, 
+                                    self.safe_margin, y_pos, 
+                                    self.content_width, 
+                                    font_name="Helvetica", font_size=9,
+                                    line_height_factor=1.1)
+        y_pos -= 25  # Extra spacing after ID
         
-        # Handle long question ID with improved formatting
-        if '+' in question_id:
-            # Split by '+' and format on multiple lines
-            parts = question_id.split('+')
-            canvas_obj.setFont("Helvetica", 10)  # Smaller font for ID
-            canvas_obj.setFillColor(self.text_color)
-            
-            for part in parts:
-                if part.strip():  # Skip empty parts
-                    # Wrap long parts if needed
-                    if canvas_obj.stringWidth(part, "Helvetica", 10) > max_width:
-                        # Break very long parts
-                        words = part.split('_')
-                        current_line = ""
-                        for word in words:
-                            test_line = current_line + word + "_"
-                            if canvas_obj.stringWidth(test_line, "Helvetica", 10) < max_width:
-                                current_line = test_line
-                            else:
-                                if current_line:
-                                    canvas_obj.drawString(self.safe_margin, y_pos, current_line.rstrip('_'))
-                                    y_pos -= 12
-                                current_line = word + "_"
-                        if current_line:
-                            canvas_obj.drawString(self.safe_margin, y_pos, current_line.rstrip('_'))
-                            y_pos -= 12
-                    else:
-                        canvas_obj.drawString(self.safe_margin, y_pos, part)
-                        y_pos -= 12
+        # === DETERMINE LAYOUT STRUCTURE ===
+        # Calculate column dimensions based on whether image is present
+        if prompt_image is not None:
+            # Two-column layout: 60% text, 38% image, 2% gap
+            text_column_width = self.content_width * 0.60
+            gap_width = self.content_width * 0.02
+            image_column_width = self.content_width * 0.38
+            image_column_x = self.safe_margin + text_column_width + gap_width
         else:
-            # Simple ID without '+'
-            canvas_obj.setFont("Helvetica", 10)
-            canvas_obj.setFillColor(self.text_color)
-            canvas_obj.drawString(self.safe_margin, y_pos, question_id)
-            y_pos -= 15
+            # Single column for text when no image
+            text_column_width = self.content_width
+            image_column_width = 0
+            image_column_x = 0
         
-        # Add some spacing
-        y_pos -= 15
+        # Store starting Y position for columns
+        content_start_y = y_pos
         
-        # Draw prompt section (more compact)
-        canvas_obj.setFont("Helvetica-Bold", 16)
+        # === LEFT COLUMN: PROMPT TEXT ===
+        canvas_obj.setFont("Helvetica-Bold", 14)
         canvas_obj.setFillColor(self.primary_color)
         canvas_obj.drawString(self.safe_margin, y_pos, "Initial Prompt:")
-        y_pos -= 25
+        y_pos -= 20
         
-        # Draw prompt text (compact)
-        canvas_obj.setFont("Helvetica", 12)
-        canvas_obj.setFillColor(self.text_color)
-        canvas_obj.drawString(self.safe_margin, y_pos, prompt)
-        y_pos -= 30
+        # Draw wrapped prompt text in left column
+        prompt_end_y = self.draw_wrapped_text(canvas_obj, prompt,
+                                            self.safe_margin, y_pos,
+                                            text_column_width,
+                                            font_name="Helvetica", font_size=12,
+                                            line_height_factor=1.3)
         
-        # DEDICATED SPACE FOR PROMPT IMAGE
-        # Reserve specific area for prompt image (2.5 inches height)
-        image_area_height = 2.5 * inch
-        image_area_width = self.content_width
-        image_start_y = y_pos
-        image_end_y = image_start_y - image_area_height
-        
-        # Draw a subtle border around image area for debugging (remove in production)
-        # canvas_obj.setStrokeColor(HexColor('#e5e7eb'))
-        # canvas_obj.setLineWidth(1)
-        # canvas_obj.rect(self.safe_margin, image_end_y, image_area_width, image_area_height, fill=0, stroke=1)
-        
-        # Add prompt image if provided
+        # === RIGHT COLUMN: PROMPT IMAGE ===
         if prompt_image is not None:
-            try:
-                print("Processing prompt image...")
-                
-                # CRITICAL: Reset file pointer and read the image properly
-                prompt_image.seek(0)
-                image_data = prompt_image.read()
-                print(f"Read {len(image_data)} bytes from prompt image")
-                
-                # Create a new temporary file with the image data
-                temp_image = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-                temp_image.write(image_data)
-                temp_image.close()
-                
-                # Add to temp files for cleanup
-                self.temp_files.append(temp_image.name)
-                
-                # Verify the file exists and has content
-                if os.path.exists(temp_image.name) and os.path.getsize(temp_image.name) > 0:
-                    print(f"Created temp image file: {temp_image.name}, size: {os.path.getsize(temp_image.name)} bytes")
-                    
-                    # Open and process the image
-                    img = Image.open(temp_image.name)
-                    img_width, img_height = img.size
-                    print(f"Image dimensions: {img_width}x{img_height}")
-                    
-                    # Calculate scaling to fit in dedicated image area
-                    width_ratio = image_area_width / img_width
-                    height_ratio = image_area_height / img_height
-                    scale_ratio = min(width_ratio, height_ratio, 1.0)  # Don't upscale
-                    
-                    new_width = int(img_width * scale_ratio)
-                    new_height = int(img_height * scale_ratio)
-                    
-                    # Center the image in the dedicated area
-                    image_x = self.safe_margin + (image_area_width - new_width) / 2
-                    image_y = image_end_y + (image_area_height - new_height) / 2
-                    
-                    print(f"Drawing image at ({image_x}, {image_y}) with size {new_width}x{new_height}")
-                    
-                    # Draw the image
-                    canvas_obj.drawImage(
-                        temp_image.name, 
-                        image_x, 
-                        image_y, 
-                        width=new_width, 
-                        height=new_height,
-                        preserveAspectRatio=True
-                    )
-                    
-                    print("Successfully drew prompt image on slide")
-                else:
-                    print(f"Temp image file issue: exists={os.path.exists(temp_image.name)}, size={os.path.getsize(temp_image.name) if os.path.exists(temp_image.name) else 'N/A'}")
-                    
-            except Exception as e:
-                print(f"Error processing prompt image: {str(e)}")
-                print(f"Error details: {traceback.format_exc()}")
-                # Continue without the image rather than failing
-        else:
-            print("No prompt image provided")
+            available_height = content_start_y - self.safe_margin - 60  # Leave space for logo
+            self.draw_prompt_image_in_column(canvas_obj, prompt_image,
+                                        image_column_x, content_start_y - 20,  # Start below "Initial Prompt:"
+                                        image_column_width,
+                                        available_height)
         
         # Draw company logo
         self.draw_company_logo(canvas_obj)
+
+    # Add these new helper methods to the PDFGenerator class:
+
+    def draw_wrapped_text(self, canvas_obj, text: str, x: float, y: float, 
+                        max_width: float, font_name: str = "Helvetica", 
+                        font_size: int = 12, line_height_factor: float = 1.2):
+        """Draw text with automatic line wrapping and return the final Y position"""
+        canvas_obj.setFont(font_name, font_size)
+        canvas_obj.setFillColor(self.text_color)
+        
+        # Handle very long words by breaking them if necessary
+        def break_long_word(word, max_word_width):
+            """Break a word that's too long to fit on one line"""
+            if canvas_obj.stringWidth(word, font_name, font_size) <= max_word_width:
+                return [word]
+            
+            broken_parts = []
+            current_part = ""
+            
+            for char in word:
+                test_part = current_part + char
+                if canvas_obj.stringWidth(test_part, font_name, font_size) <= max_word_width:
+                    current_part = test_part
+                else:
+                    if current_part:
+                        broken_parts.append(current_part)
+                    current_part = char
+            
+            if current_part:
+                broken_parts.append(current_part)
+            
+            return broken_parts
+        
+        # Split text into words and handle wrapping
+        words = text.split()
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            # Check if word itself is too long
+            if canvas_obj.stringWidth(word, font_name, font_size) > max_width:
+                # Add current line if it has content
+                if current_line.strip():
+                    lines.append(current_line.strip())
+                    current_line = ""
+                
+                # Break the long word
+                broken_words = break_long_word(word, max_width)
+                for i, broken_word in enumerate(broken_words):
+                    if i == len(broken_words) - 1:  # Last part
+                        current_line = broken_word + " "
+                    else:
+                        lines.append(broken_word)
+            else:
+                # Normal word processing
+                test_line = current_line + word + " "
+                if canvas_obj.stringWidth(test_line, font_name, font_size) <= max_width:
+                    current_line = test_line
+                else:
+                    if current_line.strip():
+                        lines.append(current_line.strip())
+                    current_line = word + " "
+        
+        # Add the last line
+        if current_line.strip():
+            lines.append(current_line.strip())
+        
+        # Draw all lines
+        current_y = y
+        line_height = font_size * line_height_factor
+        
+        for line in lines:
+            canvas_obj.drawString(x, current_y, line)
+            current_y -= line_height
+        
+        return current_y
+
+    def draw_prompt_image_in_column(self, canvas_obj, image_file: BinaryIO, 
+                                x: float, y: float, column_width: float, 
+                                available_height: float):
+        """Draw prompt image within the specified column bounds with proper scaling"""
+        try:
+            # Reset file pointer and prepare image
+            image_file.seek(0)
+            image_data = image_file.read()
+            
+            if not image_data:
+                print("No image data found")
+                return
+                
+            # Create temporary file for the image
+            temp_image = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_image.write(image_data)
+            temp_image.close()
+            
+            # Add to cleanup list
+            self.temp_files.append(temp_image.name)
+            
+            # Verify file and get image dimensions
+            if not os.path.exists(temp_image.name) or os.path.getsize(temp_image.name) == 0:
+                print(f"Invalid temp image file: {temp_image.name}")
+                return
+                
+            # Open and process the image
+            img = Image.open(temp_image.name)
+            img_width, img_height = img.size
+            
+            # Calculate scaling to fit within column bounds
+            width_ratio = column_width / img_width
+            height_ratio = available_height / img_height
+            scale_ratio = min(width_ratio, height_ratio, 1.0)  # Don't upscale beyond original size
+            
+            new_width = img_width * scale_ratio
+            new_height = img_height * scale_ratio
+            
+            # Center image horizontally within column, align to top vertically
+            image_x = x + (column_width - new_width) / 2
+            image_y = y - new_height  # Align to top of available space
+            
+            # Ensure image doesn't go below bottom margin
+            min_y = self.safe_margin + 60  # Leave space for company logo
+            if image_y < min_y:
+                # Recalculate to fit within available space
+                adjusted_height = y - min_y
+                height_ratio = adjusted_height / img_height
+                scale_ratio = min(width_ratio, height_ratio, 1.0)
+                
+                new_width = img_width * scale_ratio
+                new_height = img_height * scale_ratio
+                image_x = x + (column_width - new_width) / 2
+                image_y = y - new_height
+            
+            # Draw the image
+            canvas_obj.drawImage(temp_image.name, image_x, image_y, 
+                            width=new_width, height=new_height,
+                            preserveAspectRatio=True)
+            
+            print(f"Successfully drew prompt image at ({image_x}, {image_y}) with size {new_width}x{new_height}")
+            
+        except Exception as e:
+            print(f"Error drawing prompt image: {str(e)}")
+            print(f"Error details: {traceback.format_exc()}")
     
     def create_model_title_slide(self, canvas_obj, model_name: str):
         """Create a model title slide with Google Slides styling"""
