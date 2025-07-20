@@ -19,7 +19,7 @@ from typing import List, Optional, BinaryIO
 # Configure page
 st.set_page_config(
     page_title="SxS Model Comparison PDF Generator",
-    page_icon="📊",
+    page_icon="🖨️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -145,6 +145,26 @@ st.markdown("""
         margin: 1rem 0;
         border: 1px solid #ffeaa7;
     }
+    
+    .next-step-section {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 0.5rem;
+        border-radius: 10px;
+        margin: 2rem 0;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
+    }
+    
+    .navigation-tip {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 0.8rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        border: 1px solid #ffeaa7;
+        font-size: 0.9rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -199,8 +219,6 @@ MODEL_COMBINATIONS = [
     ("AIS 2.5 Flash", "cGPT 4o"),
     ("Bard 2.5 Pro", "cGPT o3"),
     ("Bard 2.5 Flash", "cGPT 4o"),
-    ("Gemini", "ChatGPT"),
-    ("ChatGPT", "Gemini"),
 ]
 
 class PDFGenerator:
@@ -450,7 +468,7 @@ class PDFGenerator:
     def create_title_slide(self, canvas_obj, question_id: str, prompt: str, 
                       prompt_image: Optional[BinaryIO] = None):
         
-    # Draw background
+        # Draw background
         self.draw_slide_background(canvas_obj)
         
         # Start from top with better spacing
@@ -510,8 +528,6 @@ class PDFGenerator:
         
         # Draw company logo
         self.draw_company_logo(canvas_obj)
-
-    # Add these new helper methods to the PDFGenerator class:
 
     def draw_wrapped_text(self, canvas_obj, text: str, x: float, y: float, 
                         max_width: float, font_name: str = "Helvetica", 
@@ -741,20 +757,20 @@ class PDFGenerator:
 
 def get_step_status(current_page):
     """Get the status of each step based on session state"""
-    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]
+    steps = ["1️⃣ Metadata Input", "2️⃣ Image Upload", "3️⃣ PDF Generation", "4️⃣ Upload to Drive"]
     statuses = []
     
     for i, step in enumerate(steps):
-        if step == current_page:
+        if step.endswith(current_page):
             statuses.append("active")
-        elif step in ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]:
-            if step == "Metadata Input" and all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
+        elif step in ["1️⃣ Metadata Input", "2️⃣ Image Upload", "3️⃣ PDF Generation", "4️⃣ Upload to Drive"]:
+            if step.endswith("Metadata Input") and all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
                 statuses.append("completed")
-            elif step == "Image Upload" and all(key in st.session_state for key in ['model1_images', 'model2_images']):
+            elif step.endswith("Image Upload") and all(key in st.session_state for key in ['model1_images', 'model2_images']):
                 statuses.append("completed")
-            elif step == "PDF Generation" and 'pdf_buffer' in st.session_state:
+            elif step.endswith("PDF Generation") and 'pdf_buffer' in st.session_state:
                 statuses.append("completed")
-            elif step == "Upload to Drive" and st.session_state.get('uploaded_to_drive', False):
+            elif step.endswith("Upload to Drive") and st.session_state.get('uploaded_to_drive', False):
                 statuses.append("completed")
             else:
                 statuses.append("")
@@ -765,7 +781,7 @@ def get_step_status(current_page):
 
 def display_step_indicator(current_page):
     """Display the step indicator"""
-    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]
+    steps = ["1️⃣ Metadata Input", "2️⃣ Image Upload", "3️⃣ PDF Generation", "4️⃣ Upload to Drive"]
     
     if current_page == "Help":
         return
@@ -778,6 +794,47 @@ def display_step_indicator(current_page):
     step_html += '</div>'
     
     st.markdown(step_html, unsafe_allow_html=True)
+
+def is_step_completed(step_name):
+    """Check if a step is completed based on session state"""
+    if step_name == "Metadata Input":
+        return all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2'])
+    elif step_name == "Image Upload":
+        return all(key in st.session_state for key in ['model1_images', 'model2_images'])
+    elif step_name == "PDF Generation":
+        return 'pdf_buffer' in st.session_state
+    elif step_name == "Upload to Drive":
+        return st.session_state.get('uploaded_to_drive', False)
+    return False
+
+def get_next_step(current_page):
+    """Get the next step in the workflow"""
+    steps = ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive"]
+    try:
+        current_index = steps.index(current_page)
+        if current_index < len(steps) - 1:
+            return steps[current_index + 1]
+    except ValueError:
+        pass
+    return None
+
+def show_next_step_button(current_page):
+    """Show the next step button if current step is completed"""
+    if not is_step_completed(current_page):
+        return
+        
+    next_step = get_next_step(current_page)
+    if not next_step:
+        return
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        next_step_emoji = {"Image Upload": "2️⃣", "PDF Generation": "3️⃣", "Upload to Drive": "4️⃣"}
+        button_text = f"Continue to {next_step_emoji.get(next_step, '▶️')} {next_step}"
+        
+        if st.button(button_text, type="primary", use_container_width=True, key=f"next_to_{next_step}"):
+            st.session_state.current_page = next_step
+            st.rerun()
 
 def create_pdf_preview(pdf_buffer: io.BytesIO) -> str:
     """Create a base64 encoded PDF preview for display"""
@@ -797,7 +854,6 @@ def display_pdf_preview(pdf_buffer: io.BytesIO):
         if b64_pdf:
             pdf_display = f"""
             <div class="pdf-preview">
-                <h4>📄 PDF Preview</h4>
                 <iframe src="data:application/pdf;base64,{b64_pdf}" 
                         width="100%" height="600px" 
                         style="border: none; border-radius: 5px;">
@@ -822,17 +878,68 @@ def display_google_form():
     pass  # Remove form functionality
 
 def main():
+    # Initialize current page in session state
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "Metadata Input"
+    
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>📊 SxS Model Comparison PDF Generator</h1>
-        <p>Generate standardized PDF documents for side-by-side model comparisons</p>
+        <h1>🖨️ SxS Model Comparison PDF Generator</h1>
+        <p>Generate standardized PDF documents for side-by-side LLM comparisons</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar navigation
+    # Sidebar navigation with enhanced UI
     st.sidebar.title("🧭 Navigation")
-    page = st.sidebar.radio("Go to", ["Metadata Input", "Image Upload", "PDF Generation", "Upload to Drive", "Help"])
+    
+    # Enhanced navigation with emoji numbers and status indicators
+    nav_options = [
+        "1️⃣ Metadata Input",
+        "2️⃣ Image Upload", 
+        "3️⃣ PDF Generation",
+        "4️⃣ Upload to Drive",
+        "❓ Help"
+    ]
+    
+    # Create a mapping for display vs actual page names
+    page_mapping = {
+        "1️⃣ Metadata Input": "Metadata Input",
+        "2️⃣ Image Upload": "Image Upload", 
+        "3️⃣ PDF Generation": "PDF Generation",
+        "4️⃣ Upload to Drive": "Upload to Drive",
+        "❓ Help": "Help"
+    }
+    
+    # Find current selection for radio
+    current_nav_selection = None
+    for nav_option, page_name in page_mapping.items():
+        if page_name == st.session_state.current_page:
+            current_nav_selection = nav_option
+            break
+    
+    if current_nav_selection is None:
+        current_nav_selection = "1️⃣ Metadata Input"
+    
+    # Display navigation with status
+    selected_nav = st.sidebar.radio(
+        "Choose Step:",
+        nav_options,
+        index=nav_options.index(current_nav_selection) if current_nav_selection in nav_options else 0,
+        format_func=lambda x: f"{x} {'✅' if is_step_completed(page_mapping[x]) else ''}"
+    )
+    
+    # Update session state based on selection
+    page = page_mapping[selected_nav]
+    st.session_state.current_page = page
+    
+    # Navigation tips
+    st.sidebar.markdown("""
+    <div class="navigation-tip">
+        💡 <strong>Navigation Tip:</strong><br>
+        Complete each step to unlock the next one. Look for the "Continue" button at the bottom of each completed step!
+    </div>
+    """, unsafe_allow_html=True)
     
     # Display step indicator
     display_step_indicator(page)
@@ -854,7 +961,7 @@ def main():
     
     # Page content
     if page == "Metadata Input":
-        st.header("📝 Step 1: Metadata Input")
+        st.header("1️⃣ Metadata Input")
         
         st.markdown("""
         <div class="info-card">
@@ -922,9 +1029,12 @@ def main():
                         <strong>❌ Error:</strong> Please fill in all required fields marked with *.
                     </div>
                     """, unsafe_allow_html=True)
+        
+        # Show next step button if completed
+        show_next_step_button("Metadata Input")
     
     elif page == "Image Upload":
-        st.header("📸 Step 2: Image Upload")
+        st.header("2️⃣ Image Upload")
         
         if not all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
             st.markdown("""
@@ -1008,9 +1118,12 @@ def main():
                         <strong>❌ Error:</strong> Please upload images for both models.
                     </div>
                     """, unsafe_allow_html=True)
+        
+        # Show next step button if completed
+        show_next_step_button("Image Upload")
     
     elif page == "PDF Generation":
-        st.header("📄 Step 3: PDF Generation")
+        st.header("3️⃣ PDF Generation")
         
         required_keys = ['question_id', 'prompt_text', 'model1', 'model2', 'model1_images', 'model2_images']
         missing_keys = [key for key in required_keys if key not in st.session_state]
@@ -1098,13 +1211,7 @@ def main():
             st.subheader("📄 PDF Preview")
             display_pdf_preview(st.session_state.pdf_buffer)
             
-            # Download Section
-            st.markdown("""
-            <div class="download-section">
-                <h3>📥 Download Your PDF</h3>
-                <p>Your PDF has been generated successfully. Click the button below to download it.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            
             
             # Download button
             filename = generate_filename(st.session_state.model1, st.session_state.model2)
@@ -1112,7 +1219,11 @@ def main():
             # Reset buffer position for download
             st.session_state.pdf_buffer.seek(0)
             pdf_data = st.session_state.pdf_buffer.read()
-            
+        # File info
+            st.info(f"📄 **Filename:** {filename}")
+            st.info(f"📊 **File Size:** {len(pdf_data) / 1024:.1f} KB")    
+        
+
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
                 st.download_button(
@@ -1120,16 +1231,17 @@ def main():
                     data=pdf_data,
                     file_name=filename,
                     mime="application/pdf",
-                    type="primary",
+                    type="secondary",
                     use_container_width=True
                 )
             
-            # File info
-            st.info(f"📄 **Filename:** {filename}")
-            st.info(f"📊 **File Size:** {len(pdf_data) / 1024:.1f} KB")
+        
+        
+        # Show next step button if completed
+        show_next_step_button("PDF Generation")
     
-    elif page == "Form Submission":
-        st.header("📝 Step 4: Form Submission")
+    elif page == "Upload to Drive":
+        st.header("4️⃣ Upload to Drive")
         
         if not st.session_state.get('pdf_generated'):
             st.markdown("""
@@ -1152,7 +1264,7 @@ def main():
                     data=pdf_data,
                     file_name=filename,
                     mime="application/pdf",
-                    type="primary",
+                    type="secondary",
                     help="Download your PDF before submitting the form"
                 )
         
@@ -1179,16 +1291,17 @@ def main():
         
         with col1:
             if st.button("✅ Mark as Submitted", type="secondary"):
-                st.session_state.form_submitted = True
+                st.session_state.uploaded_to_drive = True
                 st.success("🎉 Great! Your submission has been recorded.")
                 st.balloons()
         
         with col2:
             if st.button("🔄 Start New Comparison", type="primary"):
                 # Clear session state
-                keys_to_clear = [key for key in st.session_state.keys() if key != 'form_submitted']
+                keys_to_clear = [key for key in st.session_state.keys() if key not in ['current_page']]
                 for key in keys_to_clear:
                     del st.session_state[key]
+                st.session_state.current_page = "Metadata Input"
                 st.success("🆕 Ready for a new comparison!")
                 st.rerun()
     
@@ -1201,24 +1314,24 @@ def main():
             st.markdown("""
             ### 📋 How to Use This App
             
-            #### Step 1: Metadata Input
+            #### 1️⃣ Metadata Input
             - Enter the **Question ID** (unique identifier)
             - Select the **Model Combination** being compared
             - Enter the **Initial Prompt** used for both models
             - Optionally upload a **Prompt Image**
             
-            #### Step 2: Image Upload
+            #### 2️⃣ Image Upload
             - Upload screenshots for both models
             - Preview images to ensure they're correct
             - Supports PNG, JPG, and JPEG formats
             
-            #### Step 3: PDF Generation
+            #### 3️⃣ PDF Generation
             - Review your inputs in the summary
             - Click **Generate PDF** to create the document
             - **Preview** the PDF before downloading
             - **Download** the generated PDF file
             
-            #### Step 4: Form Submission
+            #### 4️⃣ Upload to Drive
             - Use the Google Form to submit your PDF
             - Fill out required fields and upload your PDF
             - Mark as submitted when complete
@@ -1246,6 +1359,12 @@ def main():
             - Ensure images are in supported formats (PNG, JPG, JPEG)
             - Keep total file size reasonable for web upload
             - Test download before submitting form
+            
+            #### Navigation Tips:
+            - Complete each step to unlock the next one
+            - Use the "Continue" buttons to move forward
+            - Check the step indicator to see your progress
+            - All data is preserved when navigating between steps
             """)
         
         with tab3:
