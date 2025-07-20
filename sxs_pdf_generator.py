@@ -151,9 +151,9 @@ st.markdown("""
     .custom-form-container {
         background-color: #16213e;
         color: white;
-        padding: 2rem;
+        padding: 0.5rem;
         border-radius: 15px;
-        margin: 2rem 0;
+        margin: 0.5rem 0;
         box-shadow: 0 8px 16px rgba(0,0,0,0.3);
     }
     
@@ -1449,7 +1449,7 @@ def main():
         # Custom Form Container
         st.markdown("""
         <div class="custom-form-container">
-            <h3 style="text-align: center; margin-bottom: 2rem; color: #e3f2fd;">
+            <h3 style="text-align: center; margin-bottom: 0.1rem; color: #e3f2fd;">
                 📋 Submission Form
             </h3>
         """, unsafe_allow_html=True)
