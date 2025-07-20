@@ -1200,8 +1200,8 @@ def main():
             st.session_state.pdf_buffer.seek(0)
             pdf_data = st.session_state.pdf_buffer.read()
         # File info
-            st.info(f"📄 **Filename:** {filename}")
-            st.info(f"📊 **File Size:** {len(pdf_data) / 1024:.1f} KB")    
+            st.info(f"🪪 **Filename:** {filename}")
+            st.info(f"🏋️‍♀️ **File Size:** {len(pdf_data) / 1024:.1f} KB")    
         
 
             col1, col2, col3 = st.columns([1, 2, 1])
