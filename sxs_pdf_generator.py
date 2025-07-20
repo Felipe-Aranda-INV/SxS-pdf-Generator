@@ -2,7 +2,6 @@ import streamlit as st
 import io
 import base64
 from PIL import Image
-from reportlab.lib.pagesizes import letter, A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import inch
@@ -41,7 +40,7 @@ st.markdown("""
         justify-content: space-between;
         margin: 2rem 0;
         padding: 1rem;
-        background-color: #1a1a2e;
+        background-color: #16213e;
         border-radius: 10px;
         color: white;
     }
@@ -66,7 +65,7 @@ st.markdown("""
     }
     
     .upload-section {
-        border: 2px dashed #cccccc;
+        border: 2px dashed #71b280;
         border-radius: 10px;
         padding: 2rem;
         text-align: center;
@@ -128,15 +127,6 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
-    .download-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 10px;
-        margin: 2rem 0;
-        text-align: center;
-    }
-    
     .generation-status {
         background-color: #fff3cd;
         color: #856404;
@@ -146,18 +136,8 @@ st.markdown("""
         border: 1px solid #ffeaa7;
     }
     
-    .next-step-section {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: white;
-        padding: 0.5rem;
-        border-radius: 10px;
-        margin: 2rem 0;
-        text-align: center;
-        box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
-    }
-    
     .navigation-tip {
-        background-color: #fff3cd;
+        background-color: #ffecd2;
         color: #856404;
         padding: 0.8rem;
         border-radius: 5px;
