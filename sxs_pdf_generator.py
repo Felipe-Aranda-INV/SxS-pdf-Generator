@@ -1312,9 +1312,9 @@ def main():
             - **Download** the generated PDF file
             
             #### 4️⃣ Upload to Drive
-            - Use the Google Form to submit your PDF
-            - Fill out required fields and upload your PDF
-            - Mark as submitted when complete
+            - Use the Form to submit your PDF
+            - Fill out required fields and double check :)
+            - Hit **submit** when complete!
             
             ### 📄 PDF Structure
             1. **Title Page**: Question ID, Prompt, and optional image
@@ -1331,14 +1331,12 @@ def main():
             #### Common Issues:
             - **PDF not downloading**: Check browser popup blocker settings
             - **Images not processing**: Ensure files are under 200MB
-            - **Form not loading**: Try refreshing the page
             - **Preview not showing**: Browser may need PDF viewer plugin
             
             #### Best Practices:
             - Use high-resolution screenshots (1920x1080 recommended)
             - Ensure images are in supported formats (PNG, JPG, JPEG)
             - Keep total file size reasonable for web upload
-            - Test download before submitting form
             
             #### Navigation Tips:
             - Complete each step to unlock the next one
@@ -1352,10 +1350,11 @@ def main():
             ### 📊 Examples
             
             #### Supported Model Combinations:
-            - **Bard 2.5 Pro** vs **AIS 2.5 PRO**
+            - **Bard 2.5 Pro vs. cGPT o3**
+            - **Bard 2.5 Flash vs. cGPT 4o**
             - **AIS 2.5 PRO** vs **cGPT o3**
             - **AIS 2.5 Flash** vs **cGPT 4o**
-            - **Gemini** vs **ChatGPT**
+            - **Bard 2.5 Pro** vs **AIS 2.5 PRO**
             
             #### Sample Question ID:
             ```
