@@ -1,6 +1,7 @@
 import streamlit as st
 import io
 import base64
+import re
 from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -145,6 +146,179 @@ st.markdown("""
         border: 1px solid #ffeaa7;
         font-size: 0.9rem;
     }
+    
+    /* Custom Step 4 Form Styling */
+    .custom-form-container {
+        background-color: #16213e;
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin: 2rem 0;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    }
+    
+    .form-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .form-row:last-child {
+        border-bottom: none;
+        justify-content: center;
+        padding-top: 2rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        margin-right: 1rem;
+        min-width: 140px;
+        color: #e3f2fd;
+    }
+    
+    .form-value {
+        flex-grow: 1;
+        padding: 0.5rem 0.75rem;
+        background-color: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 6px;
+        color: white;
+        margin-right: 1rem;
+    }
+    
+    .form-value.readonly {
+        background-color: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        cursor: not-allowed;
+    }
+    
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        margin-left: 1rem;
+    }
+    
+    .pdf-info {
+        display: flex;
+        align-items: center;
+        background-color: rgba(255,255,255,0.1);
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-right: 1rem;
+        flex-grow: 1;
+    }
+    
+    .pdf-icon {
+        font-size: 2rem;
+        margin-right: 1rem;
+        color: #ff6b6b;
+    }
+    
+    .pdf-details {
+        flex-grow: 1;
+    }
+    
+    .load-button {
+        background-color: #4285f4;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background-color 0.3s;
+        margin-left: 1rem;
+    }
+    
+    .load-button:hover {
+        background-color: #3367d6;
+    }
+    
+    .load-button:disabled {
+        background-color: #666;
+        cursor: not-allowed;
+    }
+    
+    .submit-button {
+        background-color: #34a853;
+        color: white;
+        border: none;
+        padding: 1rem 3rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: background-color 0.3s;
+    }
+    
+    .submit-button:hover {
+        background-color: #2d8a47;
+    }
+    
+    .submit-button:disabled {
+        background-color: #666;
+        cursor: not-allowed;
+    }
+    
+    .validation-status {
+        display: flex;
+        align-items: center;
+        margin-left: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .validation-pending {
+        color: #ffa726;
+    }
+    
+    .validation-success {
+        color: #66bb6a;
+    }
+    
+    .validation-error {
+        color: #ef5350;
+    }
+    
+    .model-info {
+        display: flex;
+        align-items: center;
+        background-color: rgba(255,255,255,0.1);
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-right: 1rem;
+        flex-grow: 1;
+    }
+    
+    .model-icon {
+        font-size: 1.5rem;
+        margin-right: 0.75rem;
+    }
+    
+    .drive-url-container {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+    }
+    
+    .drive-url-display {
+        flex-grow: 1;
+        padding: 0.5rem 0.75rem;
+        background-color: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 6px;
+        color: #aaa;
+        font-style: italic;
+        margin-right: 1rem;
+    }
+    
+    .drive-url-ready {
+        background-color: rgba(76, 175, 80, 0.2);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        color: #81c784;
+        font-style: normal;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -200,6 +374,47 @@ MODEL_COMBINATIONS = [
     ("Bard 2.5 Pro", "cGPT o3"),
     ("Bard 2.5 Flash", "cGPT 4o"),
 ]
+
+# Placeholder functions for future Google Cloud integration
+def validate_email_against_spreadsheet(email: str) -> bool:
+    """
+    PLACEHOLDER: Email validation against Google Sheets
+    
+    This function will be implemented once Google Cloud credentials are available.
+    It should:
+    1. Connect to the Google Sheets SOT
+    2. Check if the email exists in the authorized users list
+    3. Return True if email is valid, False otherwise
+    """
+    # Temporary validation for demo purposes
+    return "@" in email and email.endswith((".com", ".org", ".net"))
+
+def generate_drive_url(pdf_buffer: io.BytesIO, filename: str, metadata: dict) -> str:
+    """
+    PLACEHOLDER: Upload PDF to Google Drive and return shareable URL
+    
+    This function will be implemented once Google Cloud credentials are available.
+    It should:
+    1. Upload PDF to designated Google Drive folder
+    2. Set appropriate sharing permissions
+    3. Return the shareable Drive URL
+    """
+    # Placeholder URL for demo purposes
+    return f"https://drive.google.com/file/d/PLACEHOLDER_FILE_ID/view?usp=sharing"
+
+def submit_to_spreadsheet(form_data: dict) -> bool:
+    """
+    PLACEHOLDER: Submit form data to Google Sheets tracking tab
+    
+    This function will be implemented once Google Cloud credentials are available.
+    It should:
+    1. Connect to the Google Sheets SOT
+    2. Add a new row to the "📤 Submissions" tab
+    3. Include all form data and metadata
+    4. Return True if successful, False otherwise
+    """
+    # Placeholder success for demo purposes
+    return True
 
 class PDFGenerator:
     """Production-grade PDF generator with Google Slides format and company branding"""
@@ -729,11 +944,6 @@ class PDFGenerator:
             st.error(f"Error generating PDF: {str(e)}")
             st.error(f"Traceback: {traceback.format_exc()}")
             raise e
-    
-    def _create_title_page(self, canvas_obj, question_id: str, prompt: str, 
-                          prompt_image: Optional[BinaryIO] = None):
-        """Legacy method - replaced by create_title_slide"""
-        self.create_title_slide(canvas_obj, question_id, prompt, prompt_image)
 
 def get_step_status(current_page):
     """Get the status of each step based on session state"""
@@ -853,14 +1063,23 @@ def generate_filename(model1: str, model2: str) -> str:
     model2_clean = model2.replace(" ", "_").replace(".", "")
     return f"SxS_Comparison_{model1_clean}_vs_{model2_clean}_{timestamp}.pdf"
 
-def display_google_form():
-    """Placeholder for Google Drive integration"""
-    pass  # Remove form functionality
+def validate_email_format(email: str) -> bool:
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
 
 def main():
     # Initialize current page in session state
     if 'current_page' not in st.session_state:
         st.session_state.current_page = "Metadata Input"
+    
+    # Initialize form state variables
+    if 'email_validated' not in st.session_state:
+        st.session_state.email_validated = False
+    if 'drive_url_generated' not in st.session_state:
+        st.session_state.drive_url_generated = False
+    if 'drive_url' not in st.session_state:
+        st.session_state.drive_url = ""
     
     # Header
     st.markdown("""
@@ -1191,19 +1410,17 @@ def main():
             st.subheader("📄 PDF Preview")
             display_pdf_preview(st.session_state.pdf_buffer)
             
-            
-            
             # Download button
             filename = generate_filename(st.session_state.model1, st.session_state.model2)
             
             # Reset buffer position for download
             st.session_state.pdf_buffer.seek(0)
             pdf_data = st.session_state.pdf_buffer.read()
-        # File info
+            
+            # File info
             st.info(f"🪪 **Filename:** {filename}")
             st.info(f"🏋️‍♀️ **File Size:** {len(pdf_data) / 1024:.1f} KB")    
-        
-
+            
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
                 st.download_button(
@@ -1214,14 +1431,12 @@ def main():
                     type="secondary",
                     use_container_width=True
                 )
-            
-        
         
         # Show next step button if completed
         show_next_step_button("PDF Generation")
     
     elif page == "Upload to Drive":
-        st.header("4️⃣ Upload to Drive")
+        st.header("4️⃣ Upload to Drive & Submit")
         
         if not st.session_state.get('pdf_generated'):
             st.markdown("""
@@ -1231,59 +1446,238 @@ def main():
             """, unsafe_allow_html=True)
             return
         
-        # Quick download for convenience
-        if 'pdf_buffer' in st.session_state:
-            filename = generate_filename(st.session_state.model1, st.session_state.model2)
-            st.session_state.pdf_buffer.seek(0)
-            pdf_data = st.session_state.pdf_buffer.read()
-            
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                st.download_button(
-                    label="📥 Download PDF (Required for Form)",
-                    data=pdf_data,
-                    file_name=filename,
-                    mime="application/pdf",
-                    type="secondary",
-                    help="Download your PDF before submitting the form"
-                )
-        
-        st.markdown("---")
-        
-        # Form submission
-        st.subheader("📋 Submission Form")
-        
+        # Custom Form Container
         st.markdown("""
-        <div class="info-card">
-            <h4>📋 Submit Your Generated PDF</h4>
-            <p>Your PDF has been generated successfully! Please use the form below to submit your comparison document.</p>
-        </div>
+        <div class="custom-form-container">
+            <h3 style="text-align: center; margin-bottom: 2rem; color: #e3f2fd;">
+                📋 Submission Form
+            </h3>
         """, unsafe_allow_html=True)
         
-        display_google_form()
+        # Get PDF info
+        filename = generate_filename(st.session_state.model1, st.session_state.model2)
+        st.session_state.pdf_buffer.seek(0)
+        pdf_data = st.session_state.pdf_buffer.read()
+        file_size_kb = len(pdf_data) / 1024
         
-        st.markdown("---")
+        # Create form using columns to simulate the custom form layout
         
-        # Completion
-        st.subheader("🎉 Completion")
-        
-        col1, col2 = st.columns(2)
-        
+        # Email Input Row
+        col1, col2, col3 = st.columns([2, 6, 2])
         with col1:
-            if st.button("✅ Mark as Submitted", type="secondary"):
-                st.session_state.uploaded_to_drive = True
-                st.success("🎉 Great! Your submission has been recorded.")
-                st.balloons()
-        
+            st.markdown('<p class="form-label">Email Address:</p>', unsafe_allow_html=True)
         with col2:
-            if st.button("🔄 Start New Comparison", type="primary"):
-                # Clear session state
-                keys_to_clear = [key for key in st.session_state.keys() if key not in ['current_page']]
-                for key in keys_to_clear:
-                    del st.session_state[key]
-                st.session_state.current_page = "Metadata Input"
-                st.success("🆕 Ready for a new comparison!")
-                st.rerun()
+            user_email = st.text_input(
+                "",
+                placeholder="Please input your CrC alias email",
+                key="email_input",
+                label_visibility="collapsed"
+            )
+        with col3:
+            if user_email:
+                if validate_email_format(user_email):
+                    # PLACEHOLDER: Email validation against spreadsheet
+                    is_email_valid = validate_email_against_spreadsheet(user_email)
+                    if is_email_valid:
+                        st.markdown('<div class="validation-status validation-success">✓ Valid</div>', unsafe_allow_html=True)
+                        st.session_state.email_validated = True
+                    else:
+                        st.markdown('<div class="validation-status validation-error">✗ Not Found</div>', unsafe_allow_html=True)
+                        st.session_state.email_validated = False
+                else:
+                    st.markdown('<div class="validation-status validation-error">✗ Invalid Format</div>', unsafe_allow_html=True)
+                    st.session_state.email_validated = False
+            else:
+                st.markdown('<div class="validation-status">⚪ Pending</div>', unsafe_allow_html=True)
+                st.session_state.email_validated = False
+        
+        st.markdown('<hr style="margin: 1rem 0; border: 1px solid rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+        
+        # Question ID Row
+        col1, col2, col3 = st.columns([2, 8, 2])
+        with col1:
+            st.markdown('<p class="form-label">Question ID:</p>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'<div class="form-value readonly">{st.session_state.question_id}</div>', unsafe_allow_html=True)
+        
+        st.markdown('<hr style="margin: 1rem 0; border: 1px solid rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+        
+        # Prompt Text Row
+        col1, col2, col3 = st.columns([2, 6, 2])
+        with col1:
+            st.markdown('<p class="form-label">Prompt Text:</p>', unsafe_allow_html=True)
+        with col2:
+            prompt_display = st.session_state.prompt_text[:100] + "..." if len(st.session_state.prompt_text) > 100 else st.session_state.prompt_text
+            st.markdown(f'<div class="form-value readonly">{prompt_display}</div>', unsafe_allow_html=True)
+        with col3:
+            has_prompt_image = bool(st.session_state.get('prompt_image'))
+            if has_prompt_image:
+                st.markdown('<div class="validation-status validation-success">📷 Has Image</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="validation-status">📷 No Image</div>', unsafe_allow_html=True)
+        
+        st.markdown('<hr style="margin: 1rem 0; border: 1px solid rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+        
+        # Model 1 Row
+        col1, col2, col3 = st.columns([2, 8, 2])
+        with col1:
+            st.markdown('<p class="form-label">Model 1:</p>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'''
+            <div class="model-info">
+                <span class="model-icon">🤖</span>
+                <div>
+                    <strong>{st.session_state.model1}</strong><br>
+                    <small>{len(st.session_state.model1_images)} screenshot(s)</small>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+        
+        st.markdown('<hr style="margin: 1rem 0; border: 1px solid rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+        
+        # Model 2 Row
+        col1, col2, col3 = st.columns([2, 8, 2])
+        with col1:
+            st.markdown('<p class="form-label">Model 2:</p>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'''
+            <div class="model-info">
+                <span class="model-icon">🤖</span>
+                <div>
+                    <strong>{st.session_state.model2}</strong><br>
+                    <small>{len(st.session_state.model2_images)} screenshot(s)</small>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+        
+        st.markdown('<hr style="margin: 1rem 0; border: 1px solid rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+        
+        # PDF and Drive URL Row
+        col1, col2, col3 = st.columns([2, 6, 2])
+        with col1:
+            st.markdown('<p class="form-label">PDF File:</p>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'''
+            <div class="pdf-info">
+                <span class="pdf-icon">📄</span>
+                <div class="pdf-details">
+                    <strong>{filename}</strong><br>
+                    <small>{file_size_kb:.1f} KB</small>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+        with col3:
+            # Load Button for Drive URL
+            load_button_disabled = not st.session_state.email_validated
+            if st.button("Load", key="load_drive_url", disabled=load_button_disabled):
+                with st.spinner("Generating Drive URL..."):
+                    # PLACEHOLDER: Generate Drive URL
+                    metadata = {
+                        'user_email': user_email,
+                        'question_id': st.session_state.question_id,
+                        'model1': st.session_state.model1,
+                        'model2': st.session_state.model2,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                    drive_url = generate_drive_url(st.session_state.pdf_buffer, filename, metadata)
+                    st.session_state.drive_url = drive_url
+                    st.session_state.drive_url_generated = True
+                    st.success("Drive URL generated successfully!")
+                    st.rerun()
+        
+        # Drive URL Display Row
+        col1, col2, col3 = st.columns([2, 8, 2])
+        with col1:
+            st.markdown('<p class="form-label">Drive URL:</p>', unsafe_allow_html=True)
+        with col2:
+            if st.session_state.drive_url_generated and st.session_state.drive_url:
+                st.markdown(f'<div class="drive-url-display drive-url-ready">{st.session_state.drive_url}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="drive-url-display">URL will be generated after clicking Load...</div>', unsafe_allow_html=True)
+        
+        st.markdown('<hr style="margin: 2rem 0; border: 1px solid rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+        
+        # Submit Button Row
+        col1, col2, col3 = st.columns([4, 4, 4])
+        with col2:
+            submit_disabled = not (st.session_state.email_validated and st.session_state.drive_url_generated)
+            
+            if st.button("📤 Submit", key="submit_form", disabled=submit_disabled, use_container_width=True):
+                with st.spinner("Submitting form..."):
+                    # PLACEHOLDER: Submit to spreadsheet
+                    form_data = {
+                        'timestamp': datetime.now().isoformat(),
+                        'user_email': user_email,
+                        'question_id': st.session_state.question_id,
+                        'prompt_text': st.session_state.prompt_text,
+                        'has_prompt_image': bool(st.session_state.get('prompt_image')),
+                        'model1': st.session_state.model1,
+                        'model2': st.session_state.model2,
+                        'model1_image_count': len(st.session_state.model1_images),
+                        'model2_image_count': len(st.session_state.model2_images),
+                        'pdf_filename': filename,
+                        'drive_url': st.session_state.drive_url,
+                        'file_size_kb': file_size_kb
+                    }
+                    
+                    success = submit_to_spreadsheet(form_data)
+                    
+                    if success:
+                        st.session_state.uploaded_to_drive = True
+                        st.success("🎉 Form submitted successfully!")
+                        st.balloons()
+                        
+                        # Display success message
+                        st.markdown(f"""
+                        <div class="success-message">
+                            <h4>✅ Submission Completed!</h4>
+                            <p><strong>Email:</strong> {user_email}</p>
+                            <p><strong>PDF:</strong> {filename}</p>
+                            <p><strong>Drive URL:</strong> <a href="{st.session_state.drive_url}" target="_blank">View File</a></p>
+                            <p><strong>Timestamp:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.error("❌ Submission failed. Please try again.")
+            
+            # Show submission requirements
+            if submit_disabled:
+                requirements = []
+                if not st.session_state.email_validated:
+                    requirements.append("✗ Valid email required")
+                if not st.session_state.drive_url_generated:
+                    requirements.append("✗ Drive URL required (click Load)")
+                
+                st.markdown(f'<div style="text-align: center; color: #ffa726; font-size: 0.9rem; margin-top: 1rem;">{"<br>".join(requirements)}</div>', unsafe_allow_html=True)
+        
+        # Close the custom form container
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Add spacing after the form
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Quick download for convenience (outside the custom form)
+        if st.session_state.get('uploaded_to_drive'):
+            st.markdown("---")
+            st.subheader("🎉 Completion")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.success("✅ Successfully submitted to spreadsheet!")
+                if st.session_state.drive_url:
+                    st.info(f"🔗 **Drive URL:** [View PDF]({st.session_state.drive_url})")
+            
+            with col2:
+                if st.button("🔄 Start New Comparison", type="primary"):
+                    # Clear session state
+                    keys_to_clear = [key for key in st.session_state.keys() if key not in ['current_page']]
+                    for key in keys_to_clear:
+                        del st.session_state[key]
+                    st.session_state.current_page = "Metadata Input"
+                    st.success("🆕 Ready for a new comparison!")
+                    st.rerun()
     
     elif page == "Help":
         st.header("❓ Help & Documentation")
@@ -1311,10 +1705,11 @@ def main():
             - **Preview** the PDF before downloading
             - **Download** the generated PDF file
             
-            #### 4️⃣ Upload to Drive
-            - Use the Form to submit your PDF
-            - Fill out required fields and double check :)
-            - Hit **submit** when complete!
+            #### 4️⃣ Upload to Drive & Submit
+            - Enter your **CrC alias email** (validated against spreadsheet)
+            - Review all populated data from previous steps
+            - Click **Load** to generate Google Drive URL
+            - Click **Submit** to complete the process
             
             ### 📄 PDF Structure
             1. **Title Page**: Question ID, Prompt, and optional image
@@ -1322,6 +1717,11 @@ def main():
             3. **First Model Screenshots**: One image per page
             4. **Second Model Brand Page**: Model name
             5. **Second Model Screenshots**: One image per page
+            
+            ### 🔄 Form Validation
+            - **Email**: Must be valid format and exist in authorized users list
+            - **Drive URL**: Generated automatically after email validation
+            - **Submit**: Only enabled when all requirements are met
             """)
         
         with tab2:
@@ -1329,20 +1729,27 @@ def main():
             ### 🔧 Troubleshooting
             
             #### Common Issues:
+            - **Email not validated**: Check if email exists in authorized users spreadsheet
+            - **Load button disabled**: Email must be validated first
+            - **Submit button disabled**: Both email validation and Drive URL generation required
             - **PDF not downloading**: Check browser popup blocker settings
             - **Images not processing**: Ensure files are under 200MB
-            - **Preview not showing**: Browser may need PDF viewer plugin
             
             #### Best Practices:
             - Use high-resolution screenshots (1920x1080 recommended)
             - Ensure images are in supported formats (PNG, JPG, JPEG)
-            - Keep total file size reasonable for web upload
+            - Use your official CrC alias email address
+            - Complete all steps in order for best results
+            
+            #### Form Requirements:
+            - **Valid Email**: Must pass format validation and spreadsheet lookup
+            - **Drive URL**: Must be generated before submission
+            - **All Data**: Previous steps must be completed
             
             #### Navigation Tips:
             - Complete each step to unlock the next one
-            - Use the "Continue" buttons to move forward
-            - Check the step indicator to see your progress
             - All data is preserved when navigating between steps
+            - Form validates in real-time as you type
             """)
         
         with tab3:
@@ -1350,21 +1757,33 @@ def main():
             ### 📊 Examples
             
             #### Supported Model Combinations:
-            - **Bard 2.5 Pro vs. cGPT o3**
-            - **Bard 2.5 Flash vs. cGPT 4o**
+            - **Bard 2.5 Pro** vs **AIS 2.5 PRO**
             - **AIS 2.5 PRO** vs **cGPT o3**
             - **AIS 2.5 Flash** vs **cGPT 4o**
-            - **Bard 2.5 Pro** vs **AIS 2.5 PRO**
+            - **Bard 2.5 Pro** vs **cGPT o3**
+            - **Bard 2.5 Flash** vs **cGPT 4o**
             
             #### Sample Question ID:
             ```
             bfdf67160ca3eca9b65f040e350b2f1f+bard_data+coach_P128628_quality_sxs_e2e_experience_learning_and_academic_help_frozen_pool_human_eval_en-US-10+INTERNAL+en:5641200679061623267
             ```
             
+            #### Sample Email Format:
+            ```
+            ops-chiron-nonstem-en-us-01@invisible.co
+
+            ```
+            
             #### Sample Prompt:
             ```
             Help me do this [image of math problem]
             ```
+            
+            #### Form Workflow:
+            1. Enter email → Validation occurs automatically
+            2. Review populated data → All previous steps shown
+            3. Click Load → Drive URL generated
+            4. Click Submit → Data sent to spreadsheet
             """)
 
 if __name__ == "__main__":
