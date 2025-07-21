@@ -92,6 +92,15 @@ st.markdown("""
         margin: 1rem 0;
         border: 1px solid #f5c6cb;
     }
+            
+    .warning-message {
+        background-color: #e3f2fd;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        border: 1px solid #2196f3;
+    }
     
     .info-card {
         background-color: #e3f2fd;
@@ -1253,6 +1262,15 @@ def main():
         
         col1, col2 = st.columns(2)
         
+        st.markdown("""
+        <div class="warning-message">
+            <strong>👋 Heads-up:</strong> Be sure to use the correct models listed above.<br>
+            🔹 Model name must be visible — top-left for Gemini/ChatGPT, top-right for AI Studio.<br>
+            📸 Ensure it's clearly shown in your screenshots.
+        </div>
+        """, unsafe_allow_html=True)
+
+        
         with col1:
             st.markdown(f"""
             <div class="upload-section">
@@ -1689,14 +1707,14 @@ def main():
             ### 📋 How to Use This App
             
             #### 1️⃣ Metadata Input
-            - Enter the **Question ID** (unique identifier)
-            - Select the **Model Combination** being compared
+            - Enter the **Question ID** (found in the top right corner of CRC under the "i" icon)
+            - Ensure the correct **Model Combination** was chosen
             - Enter the **Initial Prompt** used for both models
             - Optionally upload a **Prompt Image**
             
             #### 2️⃣ Image Upload
             - Upload screenshots for both models
-            - Preview images to ensure they're correct
+            - Preview images to confirm accuracy and clarity
             - Supports PNG, JPG, and JPEG formats
             
             #### 3️⃣ PDF Generation
@@ -1706,7 +1724,7 @@ def main():
             - **Download** the generated PDF file
             
             #### 4️⃣ Upload to Drive & Submit
-            - Enter your **CrC alias email** (validated against spreadsheet)
+            - Enter your **CrC alias email** (will be validated against roster)
             - Review all populated data from previous steps
             - Click **Load** to generate Google Drive URL
             - Click **Submit** to complete the process
