@@ -2,17 +2,6 @@
 
 Streamlit app for generating standardized PDF documents for side-by-side AI model comparisons with integration to Google Sheets.
 
-## 📦 Production Deployment 🔧 Environment Configuration
-
-### Required Files Structure
-
-sxs-pdf-generator/
-├── sxs_pdf_generator.py        # Main application
-├── requirements.txt            # Dependencies
-├── .streamlit/
-│   └── config.toml            # Streamlit configuration
-├── README.md                  # This file
-
 ## 📊 Application Architecture
 
 ### Component Structure
