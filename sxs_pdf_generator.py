@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# CSS for styling
 st.markdown("""
 <style>
     .main-header {
@@ -435,13 +435,13 @@ class PDFGenerator:
         self.slide_format = (self.page_width, self.page_height)
         
         # Safe margins (reduced for larger images)
-        self.safe_margin = 0.25 * inch  # Reduced from 0.5" to 0.25"
+        self.safe_margin = 0.25 * inch
         self.content_width = self.page_width - (2 * self.safe_margin)
         self.content_height = self.page_height - (2 * self.safe_margin)
         
-        # Company logo dimensions and position (icon only, bigger)
-        self.logo_size = 0.5 * inch    # Bigger square logo (36 points)
-        self.logo_margin = 0.2 * inch  # Margin from edge
+        # Company logo dimensions and position (icon only)
+        self.logo_size = 0.5 * inch
+        self.logo_margin = 0.2 * inch
         
         # Color scheme (Google Slides Material Design)
         self.primary_color = HexColor('#4a86e8')  # Cornflower Blue
@@ -468,16 +468,16 @@ class PDFGenerator:
             logo_img = Image.new('RGBA', (icon_size, icon_size), (255, 255, 255, 0))  # Transparent background
             draw = ImageDraw.Draw(logo_img)
             
-            # Draw the circular logo (based on the SVG design)
+            # Draw the circular logo (SVG design)
             circle_margin = 4
             circle_size = icon_size - (2 * circle_margin)
             
-            # Draw outer circle (dark)
+            # Draw outer circle
             draw.ellipse([circle_margin, circle_margin, 
                          circle_margin + circle_size, circle_margin + circle_size], 
                         fill=(15, 15, 15, 255), outline=None)
             
-            # Draw inner square (white) - represents the square cutout in the SVG
+            # Draw inner square (white)
             inner_margin = 12
             inner_size = circle_size - (2 * inner_margin)
             inner_x = circle_margin + inner_margin
@@ -566,11 +566,6 @@ class PDFGenerator:
         # Set background to white
         canvas_obj.setFillColor(HexColor('#ffffff'))
         canvas_obj.rect(0, 0, self.page_width, self.page_height, fill=1, stroke=0)
-        
-        # Optional: Add subtle border
-        canvas_obj.setStrokeColor(HexColor('#e5e7eb'))
-        canvas_obj.setLineWidth(1)
-        canvas_obj.rect(0, 0, self.page_width, self.page_height, fill=0, stroke=1)
 
     def draw_text_with_wrapping(self, canvas_obj, text: str, x: float, y: float, 
                            max_width: float, font_name: str = "Helvetica", 
@@ -650,7 +645,7 @@ class PDFGenerator:
             if max_height is None:
                 max_height = self.content_height
             
-            # Calculate scaling to fit within slide bounds
+            # Calculate scaling to fit within slides
             if img_width > max_width or img_height > max_height:
                 ratio = min(max_width / img_width, max_height / img_height)
                 new_width = int(img_width * ratio)
@@ -684,7 +679,7 @@ class PDFGenerator:
         canvas_obj.drawString(self.safe_margin, y_pos, "ID:")
         y_pos -= 18
         
-        # Draw question ID with proper multi-line wrapping
+        # Write question ID with proper multi-line wrapping
         y_pos = self.draw_wrapped_text(canvas_obj, question_id, 
                                     self.safe_margin, y_pos, 
                                     self.content_width, 
@@ -693,7 +688,7 @@ class PDFGenerator:
         y_pos -= 25  # Extra spacing after ID
         
         # === DETERMINE LAYOUT STRUCTURE ===
-        # Calculate column dimensions based on whether image is present
+        # Calculate column dimensions based on whether image is present or not - split screen view.
         if prompt_image is not None:
             # Two-column layout: 60% text, 38% image, 2% gap
             text_column_width = self.content_width * 0.60
@@ -701,7 +696,7 @@ class PDFGenerator:
             image_column_width = self.content_width * 0.38
             image_column_x = self.safe_margin + text_column_width + gap_width
         else:
-            # Single column for text when no image
+            # Single column for text when no image is submitted
             text_column_width = self.content_width
             image_column_width = 0
             image_column_x = 0
@@ -793,11 +788,11 @@ class PDFGenerator:
                         lines.append(current_line.strip())
                     current_line = word + " "
         
-        # Add the last line
+        # Add last line
         if current_line.strip():
             lines.append(current_line.strip())
         
-        # Draw all lines
+        # all lines
         current_y = y
         line_height = font_size * line_height_factor
         
@@ -840,17 +835,17 @@ class PDFGenerator:
             # Calculate scaling to fit within column bounds
             width_ratio = column_width / img_width
             height_ratio = available_height / img_height
-            scale_ratio = min(width_ratio, height_ratio, 1.0)  # Don't upscale beyond original size
+            scale_ratio = min(width_ratio, height_ratio, 1.0)  # Do not upscale
             
             new_width = img_width * scale_ratio
             new_height = img_height * scale_ratio
             
-            # Center image horizontally within column, align to top vertically
+            # image is centered horizontally within column, align to top vertically
             image_x = x + (column_width - new_width) / 2
-            image_y = y - new_height  # Align to top of available space
+            image_y = y - new_height  # Align to top
             
             # Ensure image doesn't go below bottom margin
-            min_y = self.safe_margin + 60  # Leave space for company logo
+            min_y = self.safe_margin + 60  # Leave some space for Inv logo
             if image_y < min_y:
                 # Recalculate to fit within available space
                 adjusted_height = y - min_y
@@ -898,9 +893,9 @@ class PDFGenerator:
         # Draw background
         self.draw_slide_background(canvas_obj)
         
-        # Draw image centered, maximizing space (leaving minimal space for logo)
-        max_height = self.content_height - 20  # Leave minimal space for logo
-        max_width = self.content_width - 20    # Small buffer for aesthetics
+        # Draw image centered, maximizing space
+        max_height = self.content_height - 20  # little space for logo
+        max_width = self.content_width - 20    # Small buffer for them aesthetics
         
         self.draw_image_centered(canvas_obj, image_path, 
                                max_width=max_width, 
@@ -1098,10 +1093,10 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar navigation with enhanced UI
+    # Sidebar navigation UI
     st.sidebar.title("🧭 Navigation")
     
-    # Enhanced navigation with emoji numbers and status indicators
+    # navigation with emoji numbers and status indicators
     nav_options = [
         "1️⃣ Metadata Input",
         "2️⃣ Image Upload", 
@@ -1110,7 +1105,7 @@ def main():
         "❓ Help"
     ]
     
-    # Create a mapping for display vs actual page names
+    # Display mapping vs actual page names
     page_mapping = {
         "1️⃣ Metadata Input": "Metadata Input",
         "2️⃣ Image Upload": "Image Upload", 
@@ -1238,7 +1233,7 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
         
-        # Show next step button if completed
+        # Show next step button when completed
         show_next_step_button("Metadata Input")
     
     elif page == "Image Upload":
@@ -1478,7 +1473,7 @@ def main():
         pdf_data = st.session_state.pdf_buffer.read()
         file_size_kb = len(pdf_data) / 1024
         
-        # Create form using columns to simulate the custom form layout
+        # Custom form layout
         
         # Email Input Row
         col1, col2, col3 = st.columns([2, 6, 2])
@@ -1669,13 +1664,13 @@ def main():
                 
                 st.markdown(f'<div style="text-align: center; color: #ffa726; font-size: 0.9rem; margin-top: 1rem;">{"<br>".join(requirements)}</div>', unsafe_allow_html=True)
         
-        # Close the custom form container
+        # Close the form container
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Add spacing after the form
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Quick download for convenience (outside the custom form)
+        # Quick download for convenience (outside the form)
         if st.session_state.get('uploaded_to_drive'):
             st.markdown("---")
             st.subheader("🎉 Completion")
