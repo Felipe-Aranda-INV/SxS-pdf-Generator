@@ -2,16 +2,6 @@
 
 Streamlit app for generating standardized PDF documents for side-by-side AI model comparisons with integration to Google Sheets.
 
-## 🚀 Features
-
-- **Multi-step workflow** with progress tracking
-- **Drag-and-drop image uploads** with preview
-- **Standardized PDF generation** matching required format
-- **Integrated Google Form** for seamless submission
-- **Professional UI/UX** with responsive design
-- **Error handling** and validation
-- **Session management** with progress persistence
-
 ## 📦 Production Deployment 🔧 Environment Configuration
 
 ### Required Files Structure
@@ -23,33 +13,6 @@ sxs-pdf-generator/
 │   └── config.toml            # Streamlit configuration
 ├── README.md                  # This file
 
-### Configuration Files
-
-#### `.streamlit/config.toml`
-- Theme settings (colors, fonts)
-- Server configuration
-- Upload limits (200MB max)
-- Security settings
-
-#### `requirements.txt`
-- Streamlit (latest stable)
-- Pillow (image processing)
-- ReportLab (PDF generation)
-- Python-dateutil (date handling)
-
-
-### Development Commands
-```bash
-# Run with auto-reload
-streamlit run sxs_pdf_generator.py --server.runOnSave true
-
-# Run with debug mode
-streamlit run sxs_pdf_generator.py --server.headless false
-
-# Run on specific port
-streamlit run sxs_pdf_generator.py --server.port 8502
-```
-
 ## 📊 Application Architecture
 
 ### Component Structure
@@ -60,7 +23,7 @@ Main Application
 ├── Metadata Input (Step 1)
 ├── Image Upload (Step 2)
 ├── PDF Generation (Step 3)
-├── Form/Doc Submission (Step 4)
+├── Form Submission (Step 4)
 └── Help & Documentation
 ```
 
@@ -104,40 +67,9 @@ Main Application
 - **Memory Management**: Mexican mom cleanup
 - **Error Boundaries**: Graceful failure handling
 
-## 🧪 Testing
-
-### Manual Testing Checklist   ---------  REMINDER to check
-- [ ] Metadata input validation
-- [ ] Image upload functionality
-- [ ] PDF generation process
-- [ ] Form submission integration
-- [ ] Error handling scenarios
-- [ ] Cross-browser compatibility
-- [ ] Mobile responsiveness
-
-## 📈 Monitoring & Analytics
-
-### Built-in Metrics
-- Session state tracking
-- Error logging
-- Performance monitoring
-- User interaction tracking
-
-### Monitoring
-- Streamlit Cloud analytics (?)
-- Google Form responses (Google sheets probably)
-- Server performance metrics
-- User feedback collection (Chiron team & agents)
-
 ## 🔧 Troubleshooting
 
-### Debug Mode
-```bash
-# Enable debug logging
-streamlit run sxs_pdf_generator.py --server.headless false --logger.level debug
-```
-
-## 📞 Support
+### 📞 Support
 
 For technical issues or questions:
 1. Check the Help section in the app
@@ -151,15 +83,10 @@ For technical issues or questions:
 - OCR integration
 - 
 
-## 📄 License
-
-This project is licensed under
-
 ## 📋 Changelog
 
 ### v1.0.0 (Current)
 - Initial production release
 - Multi-step workflow
-- Google Form integration
-- Sleek UI/UX
+- Google Cloud integration
 - Comprehensive error handling
