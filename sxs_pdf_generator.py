@@ -1434,6 +1434,102 @@ def display_pdf_preview(pdf_buffer: io.BytesIO):
     except Exception as e:
         st.error(f"Error displaying PDF preview: {str(e)}")
 
+def create_reorderable_image_preview(images, model_name, session_key):
+    """Interactive image preview with reordering capabilities"""
+    
+    if not images:
+        return images
+    
+    st.markdown(f"### 🔍 Preview & Reorder {model_name} Images")
+    st.info("💡 **Tip**: Use the ⬆️⬇️ buttons to reorder images. The first image will appear first in your PDF.")
+    
+    # Store reordered images in session state
+    reorder_key = f"{session_key}_reordered"
+    if reorder_key not in st.session_state:
+        st.session_state[reorder_key] = list(images)
+    
+    current_images = st.session_state[reorder_key]
+    
+    # Check if order has changed
+    order_changed = current_images != list(images)
+    if order_changed:
+        st.success("✅ **Image order modified** - Your changes will be reflected in the PDF")
+    
+    # Display images with reordering controls
+    for i, img in enumerate(current_images):
+        # Create container for each image
+        with st.container():
+            # Main layout: image on left, controls on right
+            col_img, col_controls = st.columns([4, 1])
+            
+            with col_img:
+                # Display image with current position
+                st.image(
+                    img, 
+                    caption=f"🏆 Position {i+1}: {model_name} Image", 
+                    use_container_width=True
+                )
+            
+            with col_controls:
+                st.markdown(f"**Position {i+1}**")
+                
+                # Move up button
+                if i > 0:
+                    if st.button("⬆️", help="Move up", key=f"{session_key}_up_{i}"):
+                        current_images[i], current_images[i-1] = current_images[i-1], current_images[i]
+                        st.session_state[reorder_key] = current_images
+                        st.rerun()
+                
+                # Move down button  
+                if i < len(current_images) - 1:
+                    if st.button("⬇️", help="Move down", key=f"{session_key}_down_{i}"):
+                        current_images[i], current_images[i+1] = current_images[i+1], current_images[i]
+                        st.session_state[reorder_key] = current_images
+                        st.rerun()
+                
+                # Quick jump to top/bottom for long lists
+                if len(current_images) > 3:
+                    if i > 1:
+                        if st.button("⏫", help="Move to top", key=f"{session_key}_top_{i}"):
+                            img_to_move = current_images.pop(i)
+                            current_images.insert(0, img_to_move)
+                            st.session_state[reorder_key] = current_images
+                            st.rerun()
+                    
+                    if i < len(current_images) - 2:
+                        if st.button("⏬", help="Move to bottom", key=f"{session_key}_bottom_{i}"):
+                            img_to_move = current_images.pop(i)
+                            current_images.append(img_to_move)
+                            st.session_state[reorder_key] = current_images
+                            st.rerun()
+            
+            # Visual separator
+            st.markdown('<hr style="margin: 0.5rem 0; border: 1px solid #e0e0e0;">', unsafe_allow_html=True)
+    
+    # Action buttons
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button(f"🔄 Reset Order", key=f"{session_key}_reset"):
+            st.session_state[reorder_key] = list(images)
+            st.success("Order reset to original upload sequence!")
+            st.rerun()
+    
+    with col2:
+        # Preview final order
+        if st.button(f"👁️ Preview Order", key=f"{session_key}_preview"):
+            st.info(f"**Final PDF Order for {model_name}:**")
+            for i, img in enumerate(current_images):
+                st.write(f"{i+1}. Image {i+1}")
+    
+    with col3:
+        # Confirm order button
+        if st.button(f"✅ Confirm Order", key=f"{session_key}_confirm"):
+            st.success(f"✅ {model_name} image order confirmed!")
+            st.balloons()
+    
+    return st.session_state[reorder_key]
+
 # ============================================================================
 # MAIN APPLICATION
 # ============================================================================
@@ -1730,10 +1826,12 @@ def main():
                 
                 if valid_files:
                     st.success(f"📁 {len(valid_files)} valid image(s) uploaded for {st.session_state.model1}")
-                    with st.expander("🔍 Preview Images"):
-                        for i, img in enumerate(valid_files):
-                            st.image(img, caption=f"{st.session_state.model1} - Image {i+1}", use_container_width=True)
-                    model1_images = valid_files
+                    with st.expander("🔍 Preview & Reorder Images", expanded=True):
+                        model1_images = create_reorderable_image_preview(
+                            valid_files, 
+                            st.session_state.model1, 
+                            "model1_images"
+                        )
         
         with col2:
             st.markdown(f"""
@@ -1762,10 +1860,12 @@ def main():
                 
                 if valid_files:
                     st.success(f"📁 {len(valid_files)} valid image(s) uploaded for {st.session_state.model2}")
-                    with st.expander("🔍 Preview Images"):
-                        for i, img in enumerate(valid_files):
-                            st.image(img, caption=f"{st.session_state.model2} - Image {i+1}", use_container_width=True)
-                    model2_images = valid_files
+                    with st.expander("🔍 Preview & Reorder Images", expanded=True):
+                        model1_images = create_reorderable_image_preview(
+                            valid_files, 
+                            st.session_state.model1, 
+                            "model1_images"
+                        )
         
         # Save images
         col1, col2, col3 = st.columns([1, 1, 1])
