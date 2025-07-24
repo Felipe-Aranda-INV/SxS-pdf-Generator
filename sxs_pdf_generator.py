@@ -31,7 +31,7 @@ st.set_page_config(
 # ============================================================================
 
 # Google Apps Script Webhook Configuration
-WEBHOOK_URL = st.secrets.get("WEBHOOK_URL", "")  # Set in Streamlit secrets
+WEBHOOK_URL = st.secrets.get("webhook_url", "")  # Set in Streamlit secrets
 WEBHOOK_TIMEOUT = 30  # seconds
 
 class AppsScriptClient:
