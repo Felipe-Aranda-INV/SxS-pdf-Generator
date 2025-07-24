@@ -92,7 +92,7 @@ MODEL_COMBINATIONS = [
 ]
 
 # ============================================================================
-# UI STYLING (unchanged - already correct)
+# UI STYLING
 # ============================================================================
 
 st.markdown("""
@@ -2228,7 +2228,7 @@ def main():
                 # Show already uploaded status
                 upload_time = st.session_state.get('drive_upload_time', 'Unknown')
                 st.markdown(f"""
-                <div style="padding: 0.5rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; text-align: center;">
+                <div style="padding: 0.5rem; background: #d4edda; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; text-align: center;">
                     <strong>✅ Already Uploaded</strong><br>
                     <small>Uploaded at: {upload_time}</small>
                 </div>
@@ -2281,7 +2281,7 @@ def main():
                         drive_link = f'<a href="{st.session_state.drive_url}" target="_blank">View File</a>' if st.session_state.drive_url else "Not available"
                         st.markdown(f"""
                         <div class="success-message">
-                            <h4>✅ Submission Completed!</h4>
+                            <h4>📋 Summary!</h4>
                             <p><strong>Email:</strong> {sanitize_html_output(user_email)}</p>
                             <p><strong>PDF:</strong> {sanitize_html_output(filename)}</p>
                             <p><strong>Drive URL:</strong> {drive_link}</p>
@@ -2309,18 +2309,8 @@ def main():
         
         # Add spacing after the form
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Completion section
-        if st.session_state.get('uploaded_to_drive'):
-            st.markdown("---")
-            st.subheader("🎉 Completion")
             
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.success("✅ Successfully submitted!")
-                if st.session_state.drive_url:
-                    st.info(f"🔗 **Drive URL:** [View PDF]({st.session_state.drive_url})")
+            col1, col2, col3 = st.columns([1, 2, 1])
             
             with col2:
                 if st.button("🔄 Start New Comparison", type="primary"):
