@@ -1435,100 +1435,221 @@ def display_pdf_preview(pdf_buffer: io.BytesIO):
         st.error(f"Error displaying PDF preview: {str(e)}")
 
 def create_reorderable_image_preview(images, model_name, session_key):
-    """Interactive image preview with reordering capabilities"""
-    
+    """Image preview with reordering capabilities"""
     if not images:
         return images
     
     st.markdown(f"### 🔍 Preview & Reorder {model_name} Images")
-    st.info("💡 **Tip**: Use the ⬆️⬇️ buttons to reorder images. The first image will appear first in your PDF.")
+    st.info("💡 **Tip**: Use ⬆️⬇️ buttons to reorder. Final order will be saved when you click '💾 Save Images' below.")
     
-    # Store reordered images in session state
+    # Store reordered images in session state with unique key
     reorder_key = f"{session_key}_reordered"
     if reorder_key not in st.session_state:
         st.session_state[reorder_key] = list(images)
     
     current_images = st.session_state[reorder_key]
     
-    # Check if order has changed
+    # Check if order has changed from original
     order_changed = current_images != list(images)
     if order_changed:
-        st.success("✅ **Image order modified** - Your changes will be reflected in the PDF")
+        st.success("✅ **Order modified** - Remember to click 'Save Images' to confirm changes")
     
-    # Display images with reordering controls
+    # Display images with ONLY up/down controls
     for i, img in enumerate(current_images):
-        # Create container for each image
         with st.container():
-            # Main layout: image on left, controls on right
-            col_img, col_controls = st.columns([4, 1])
+            # Layout: image on left, minimal controls on right
+            col_img, col_controls = st.columns([5, 1])
             
             with col_img:
-                # Display image with current position
+                # Display image with position number
                 st.image(
                     img, 
-                    caption=f"🏆 Position {i+1}: {model_name} Image", 
+                    caption=f"Position {i+1}: {model_name}", 
                     use_container_width=True
                 )
             
             with col_controls:
-                st.markdown(f"**Position {i+1}**")
+                st.markdown(f"**#{i+1}**")
                 
                 # Move up button
                 if i > 0:
-                    if st.button("⬆️", help="Move up", key=f"{session_key}_up_{i}"):
+                    if st.button("⬆️", 
+                                help="Move up", 
+                                key=f"{model_name}_{session_key}_up_{i}"):
                         current_images[i], current_images[i-1] = current_images[i-1], current_images[i]
                         st.session_state[reorder_key] = current_images
                         st.rerun()
                 
-                # Move down button  
+                # Move down button
                 if i < len(current_images) - 1:
-                    if st.button("⬇️", help="Move down", key=f"{session_key}_down_{i}"):
+                    if st.button("⬇️", 
+                                help="Move down", 
+                                key=f"{model_name}_{session_key}_down_{i}"):
                         current_images[i], current_images[i+1] = current_images[i+1], current_images[i]
                         st.session_state[reorder_key] = current_images
                         st.rerun()
-                
-                # Quick jump to top/bottom for long lists
-                if len(current_images) > 3:
-                    if i > 1:
-                        if st.button("⏫", help="Move to top", key=f"{session_key}_top_{i}"):
-                            img_to_move = current_images.pop(i)
-                            current_images.insert(0, img_to_move)
-                            st.session_state[reorder_key] = current_images
-                            st.rerun()
-                    
-                    if i < len(current_images) - 2:
-                        if st.button("⏬", help="Move to bottom", key=f"{session_key}_bottom_{i}"):
-                            img_to_move = current_images.pop(i)
-                            current_images.append(img_to_move)
-                            st.session_state[reorder_key] = current_images
-                            st.rerun()
             
-            # Visual separator
-            st.markdown('<hr style="margin: 0.5rem 0; border: 1px solid #e0e0e0;">', unsafe_allow_html=True)
+            # Subtle separator
+            if i < len(current_images) - 1:
+                st.markdown('<hr style="margin: 0.25rem 0; border: 0.5px solid #f0f0f0;">', unsafe_allow_html=True)
     
-    # Action buttons
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button(f"🔄 Reset Order", key=f"{session_key}_reset"):
-            st.session_state[reorder_key] = list(images)
-            st.success("Order reset to original upload sequence!")
-            st.rerun()
-    
-    with col2:
-        # Preview final order
-        if st.button(f"👁️ Preview Order", key=f"{session_key}_preview"):
-            st.info(f"**Final PDF Order for {model_name}:**")
-            for i, img in enumerate(current_images):
-                st.write(f"{i+1}. Image {i+1}")
-    
-    with col3:
-        # Confirm order button
-        if st.button(f"✅ Confirm Order", key=f"{session_key}_confirm"):
-            st.success(f"✅ {model_name} image order confirmed!")
-            st.balloons()
+    # Reset to original order button
+    if order_changed:
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button(f"🔄 Reset {model_name} Order", 
+                        key=f"{model_name}_{session_key}_reset",
+                        help="Reset to original upload order"):
+                st.session_state[reorder_key] = list(images)
+                st.success("Order reset!")
+                st.rerun()
     
     return st.session_state[reorder_key]
+
+def image_upload_page():
+    """Image Upload page with fixed reordering functionality"""
+    
+    st.header("2️⃣ Image Upload")
+    
+    if not all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
+        st.markdown("""
+        <div class="error-message">
+            <strong>⚠️ Prerequisites Missing:</strong> Please complete Step 1 (Metadata Input) first.
+        </div>
+        """, unsafe_allow_html=True)
+        return
+    
+    st.markdown(f"""
+    <div class="info-card">
+        <h4>📋 Current Setup</h4>
+        <p><strong>Comparison:</strong> {sanitize_html_output(st.session_state.model1)} vs {sanitize_html_output(st.session_state.model2)}</p>
+        <p><strong>Question ID:</strong> {sanitize_html_output(st.session_state.question_id[:50])}...</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    # =======================
+    # MODEL 1 UPLOAD SECTION
+    # =======================
+    
+    with col1:
+        st.markdown(f"""
+        <div class="upload-section">
+            <h3>🔵 {sanitize_html_output(st.session_state.model1)} Screenshots</h3>
+            <p>Upload interface screenshots and responses</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        model1_images = st.file_uploader(
+            f"Upload {st.session_state.model1} screenshots",
+            type=['png', 'jpg', 'jpeg'],
+            accept_multiple_files=True,
+            key="model1_images_upload",
+            help="Upload screenshots of the first model's interface and responses"
+        )
+        
+        if model1_images:
+            # Validate file sizes
+            valid_files = []
+            for img in model1_images:
+                if validate_file_size(img):
+                    valid_files.append(img)
+                else:
+                    st.error(f"File {img.name} is too large (max {MAX_FILE_SIZE_MB}MB)")
+            
+            if valid_files:
+                st.success(f"📁 {len(valid_files)} valid image(s) uploaded for {st.session_state.model1}")
+                
+                # FIXED: Preview with reordering
+                with st.expander("🔍 Preview & Reorder Images", expanded=True):
+                    model1_images = create_reorderable_image_preview(
+                        valid_files, 
+                        st.session_state.model1, 
+                        "model1"  # Simplified session key
+                    )
+    
+    # =======================
+    # MODEL 2 UPLOAD SECTION
+    # =======================
+    
+    with col2:
+        st.markdown(f"""
+        <div class="upload-section">
+            <h3>🔴 {sanitize_html_output(st.session_state.model2)} Screenshots</h3>
+            <p>Upload interface screenshots and responses</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        model2_images = st.file_uploader(
+            f"Upload {st.session_state.model2} screenshots",
+            type=['png', 'jpg', 'jpeg'],
+            accept_multiple_files=True,
+            key="model2_images_upload",
+            help="Upload screenshots of the second model's interface and responses"
+        )
+        
+        if model2_images:
+            # Validate file sizes
+            valid_files = []
+            for img in model2_images:
+                if validate_file_size(img):
+                    valid_files.append(img)
+                else:
+                    st.error(f"File {img.name} is too large (max {MAX_FILE_SIZE_MB}MB)")
+            
+            if valid_files:
+                st.success(f"📁 {len(valid_files)} valid image(s) uploaded for {st.session_state.model2}")
+                
+                # FIXED: Preview with reordering - Different session key
+                with st.expander("🔍 Preview & Reorder Images", expanded=True):
+                    model2_images = create_reorderable_image_preview(
+                        valid_files, 
+                        st.session_state.model2, 
+                        "model2"  # Different session key to avoid conflicts
+                    )
+    
+    # ===================
+    # SINGLE SAVE BUTTON
+    # ===================
+    
+    # Save images button
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("💾 Save Images", type="primary", use_container_width=True):
+            if model1_images and model2_images:
+                # Use the reordered images from session state
+                final_model1_images = st.session_state.get("model1_reordered", model1_images)
+                final_model2_images = st.session_state.get("model2_reordered", model2_images)
+                
+                # Save to main session state
+                st.session_state.model1_images = final_model1_images
+                st.session_state.model2_images = final_model2_images
+                
+                st.markdown("""
+                <div class="success-message">
+                    <strong>✅ Success!</strong> Images saved with your chosen order! You can now proceed to Step 3.
+                </div>
+                """, unsafe_allow_html=True)
+                st.balloons()
+                
+                # Show final order confirmation
+                st.info(f"📋 **Final Order Saved:**")
+                col_info1, col_info2 = st.columns(2)
+                with col_info1:
+                    st.write(f"**{st.session_state.model1}:** {len(final_model1_images)} images")
+                with col_info2:
+                    st.write(f"**{st.session_state.model2}:** {len(final_model2_images)} images")
+                    
+            else:
+                st.markdown("""
+                <div class="error-message">
+                    <strong>❌ Error:</strong> Please upload images for both models.
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Show next step button if completed
+    show_next_step_button("Image Upload")
 
 # ============================================================================
 # MAIN APPLICATION
@@ -1776,120 +1897,9 @@ def main():
         
         # Show next step button if completed
         show_next_step_button("Metadata Input")
-
-
     elif page == "Image Upload":
-        st.header("2️⃣ Image Upload")
-        
-        if not all(key in st.session_state for key in ['question_id', 'prompt_text', 'model1', 'model2']):
-            st.markdown("""
-            <div class="error-message">
-                <strong>⚠️ Prerequisites Missing:</strong> Please complete Step 1 (Metadata Input) first.
-            </div>
-            """, unsafe_allow_html=True)
-            return
-        
-        st.markdown(f"""
-        <div class="info-card">
-            <h4>📋 Current Setup</h4>
-            <p><strong>Comparison:</strong> {sanitize_html_output(st.session_state.model1)} vs {sanitize_html_output(st.session_state.model2)}</p>
-            <p><strong>Question ID:</strong> {sanitize_html_output(st.session_state.question_id[:50])}...</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="upload-section">
-                <h3>🔵 {sanitize_html_output(st.session_state.model1)} Screenshots</h3>
-                <p>Upload interface screenshots and responses</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            model1_images = st.file_uploader(
-                f"Upload {st.session_state.model1} screenshots",
-                type=['png', 'jpg', 'jpeg'],
-                accept_multiple_files=True,
-                key="model1_images_upload",
-                help="Upload screenshots of the first model's interface and responses"
-            )
-            
-            if model1_images:
-                # Validate file sizes
-                valid_files = []
-                for img in model1_images:
-                    if validate_file_size(img):
-                        valid_files.append(img)
-                    else:
-                        st.error(f"File {img.name} is too large (max {MAX_FILE_SIZE_MB}MB)")
-                
-                if valid_files:
-                    st.success(f"📁 {len(valid_files)} valid image(s) uploaded for {st.session_state.model1}")
-                    with st.expander("🔍 Preview & Reorder Images", expanded=True):
-                        model1_images = create_reorderable_image_preview(
-                            valid_files, 
-                            st.session_state.model1, 
-                            "model1_images"
-                        )
-        
-        with col2:
-            st.markdown(f"""
-            <div class="upload-section">
-                <h3>🔴 {sanitize_html_output(st.session_state.model2)} Screenshots</h3>
-                <p>Upload interface screenshots and responses</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            model2_images = st.file_uploader(
-                f"Upload {st.session_state.model2} screenshots",
-                type=['png', 'jpg', 'jpeg'],
-                accept_multiple_files=True,
-                key="model2_images_upload",
-                help="Upload screenshots of the second model's interface and responses"
-            )
-            
-            if model2_images:
-                # Validate file sizes
-                valid_files = []
-                for img in model2_images:
-                    if validate_file_size(img):
-                        valid_files.append(img)
-                    else:
-                        st.error(f"File {img.name} is too large (max {MAX_FILE_SIZE_MB}MB)")
-                
-                if valid_files:
-                    st.success(f"📁 {len(valid_files)} valid image(s) uploaded for {st.session_state.model2}")
-                    with st.expander("🔍 Preview & Reorder Images", expanded=True):
-                        model1_images = create_reorderable_image_preview(
-                            valid_files, 
-                            st.session_state.model1, 
-                            "model1_images"
-                        )
-        
-        # Save images
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            if st.button("💾 Save Images", type="primary"):
-                if model1_images and model2_images:
-                    st.session_state.model1_images = model1_images
-                    st.session_state.model2_images = model2_images
-                    
-                    st.markdown("""
-                    <div class="success-message">
-                        <strong>✅ Success!</strong> Images saved successfully! You can now proceed to Step 3.
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.balloons()
-                else:
-                    st.markdown("""
-                    <div class="error-message">
-                        <strong>❌ Error:</strong> Please upload images for both models.
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # Show next step button if completed
-        show_next_step_button("Image Upload")
+        image_upload_page() # Utility function
+
     
     elif page == "PDF Generation":
         st.header("3️⃣ PDF Generation")
